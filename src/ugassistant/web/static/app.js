@@ -330,7 +330,7 @@ function ensureSpotifyWebPlayer() {
     });
     spotifyWebPlayer.addListener("ready", ({ device_id: deviceId }) => {
       spotifyWebPlayerDeviceId = deviceId;
-      setSpotifyLocalPlayerStatus("Pulsa Activar reproductor local para permitir el audio.");
+      noteSpotifyWebPlayerAvailable();
     });
     spotifyWebPlayer.addListener("not_ready", () => {
       spotifyWebPlayerDeviceId = "";
@@ -373,6 +373,18 @@ function ensureSpotifyWebPlayer() {
     setSpotifyLocalPlayerStatus("No se pudo cargar el reproductor local de Spotify.");
   };
   document.head.appendChild(script);
+}
+
+async function noteSpotifyWebPlayerAvailable() {
+  try {
+    const response = await fetch("/api/spotify/web-player/pending", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "Spotify local player pending failed");
+    setSpotifyLocalPlayerStatus("Pulsa Activar reproductor local para permitir el audio.");
+  } catch (error) {
+    setSpotifyLocalPlayerStatus("No se pudo preparar el reproductor local.");
+    console.error("spotify_web_player_pending_failed", error);
+  }
 }
 
 async function registerSpotifyWebPlayer(deviceId) {

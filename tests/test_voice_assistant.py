@@ -14,6 +14,7 @@ from ugassistant.adapters.simulated import (
 )
 from ugassistant.domain.spotify import (
     SpotifyError,
+    SpotifyLocalPlayerNotActivatedError,
     SpotifyNotConfiguredError,
     SpotifyNotConnectedError,
 )
@@ -284,6 +285,12 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
             "reproductor activo",
             VoiceAssistantService._spotify_error_response(
                 SpotifyError("no active device"), "es_ES"
+            ),
+        )
+        self.assertIn(
+            "Activar reproductor local",
+            VoiceAssistantService._spotify_error_response(
+                SpotifyLocalPlayerNotActivatedError("activate player"), "es_ES"
             ),
         )
 

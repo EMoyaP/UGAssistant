@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from ugassistant.domain.spotify import (
     SpotifyError,
+    SpotifyLocalPlayerNotActivatedError,
     SpotifyNotConfiguredError,
     SpotifyNotConnectedError,
 )
@@ -422,6 +423,12 @@ class VoiceAssistantService:
                 "Spotify esta configurado, pero debes conectarlo desde Configuracion."
                 if locale == "es_ES"
                 else "Spotify est configure, mais vous devez le connecter dans Configuration."
+            )
+        if isinstance(error, SpotifyLocalPlayerNotActivatedError):
+            return (
+                "Abre Configuracion y pulsa Activar reproductor local de Spotify."
+                if locale == "es_ES"
+                else "Ouvrez Configuration et activez le lecteur local Spotify."
             )
         return (
             "Spotify esta conectado, pero no hay un reproductor activo o no se pudo iniciar la musica. "

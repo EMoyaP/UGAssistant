@@ -852,6 +852,11 @@ def create_app(
         except SpotifyError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+    @app.post("/api/spotify/web-player/pending")
+    async def spotify_web_player_pending() -> dict[str, object]:
+        spotify_service.note_web_player_available()
+        return spotify_service.status.to_dict()
+
     @app.post("/api/spotify/web-player/device")
     async def spotify_web_player_device(
         request: SpotifyWebPlayerDeviceRequest,

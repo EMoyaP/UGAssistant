@@ -32,6 +32,9 @@ class SpotifyService:
     async def web_player_access_token(self) -> str:
         return await self._adapter.web_player_access_token()
 
+    def note_web_player_available(self) -> None:
+        self._adapter.note_web_player_available()
+
     async def set_web_player_device(self, device_id: str) -> SpotifyStatus:
         return await self._publish(await self._adapter.set_web_player_device(device_id))
 

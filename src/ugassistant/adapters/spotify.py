@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 
 from ugassistant.domain.spotify import (
     SpotifyError,
+    SpotifyLocalPlayerNotActivatedError,
     SpotifyNotConfiguredError,
     SpotifyNotConnectedError,
     SpotifyPlayback,
@@ -186,11 +187,13 @@ class SpotifyWebAPIAdapter:
         self._pending_state = ""
         self._pending_verifier = ""
         self._web_player_device_id = ""
+        self._web_player_pending = False
 
     def configure(self, client_id: str) -> None:
         normalized_client_id = client_id.strip()
         if normalized_client_id != self._client_id:
             self._web_player_device_id = ""
+            self._web_player_pending = False
         self._client_id = normalized_client_id
 
     async def authorization_url(self) -> str:
@@ -252,11 +255,15 @@ class SpotifyWebAPIAdapter:
     async def web_player_access_token(self) -> str:
         return await self._access_token()
 
+    def note_web_player_available(self) -> None:
+        self._web_player_pending = True
+
     async def set_web_player_device(self, device_id: str) -> SpotifyStatus:
         normalized_device_id = device_id.strip()
         if not normalized_device_id:
             raise ValueError("Spotify Web Playback device ID cannot be empty")
         self._web_player_device_id = normalized_device_id
+        self._web_player_pending = False
         return await self.status()
 
     async def play_query(
@@ -268,6 +275,10 @@ class SpotifyWebAPIAdapter:
         normalized_query = " ".join(query.split())
         if not normalized_query:
             raise ValueError("Spotify query cannot be empty")
+        if self._web_player_pending and not self._web_player_device_id:
+            raise SpotifyLocalPlayerNotActivatedError(
+                "Activate the local Spotify player before requesting music"
+            )
         if prefer_artist:
             artist_payload = await self._api_request(
                 "GET",
@@ -355,6 +366,7 @@ class SpotifyWebAPIAdapter:
         self._pending_state = ""
         self._pending_verifier = ""
         self._web_player_device_id = ""
+        self._web_player_pending = False
         return SpotifyStatus(
             configured=bool(self._client_id),
             detail="not_connected" if self._client_id else "not_configured",

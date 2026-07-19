@@ -16,6 +16,10 @@ class SpotifyNotConnectedError(SpotifyError):
     """Raised when the local OAuth authorization is unavailable or expired."""
 
 
+class SpotifyLocalPlayerNotActivatedError(SpotifyError):
+    """Raised until the browser has allowed local Spotify playback."""
+
+
 @dataclass(frozen=True)
 class SpotifyPlayback:
     track_id: str = ""
@@ -65,6 +69,9 @@ class SpotifyAdapter(Protocol):
         ...
 
     async def web_player_access_token(self) -> str:
+        ...
+
+    def note_web_player_available(self) -> None:
         ...
 
     async def set_web_player_device(self, device_id: str) -> SpotifyStatus:

@@ -78,9 +78,12 @@ class SpotifyAPITests(unittest.IsolatedAsyncioTestCase):
                 spotify.configure("spotify-client-id")
                 await spotify.complete_authorization("code", "state")
                 token = route_endpoint(app, "/api/spotify/web-player/token", "GET")
+                pending = route_endpoint(app, "/api/spotify/web-player/pending", "POST")
                 device = route_endpoint(app, "/api/spotify/web-player/device", "POST")
 
                 token_payload = await token()
+                await pending()
+                self.assertTrue(spotify.web_player_pending)
                 status = await device(
                     SpotifyWebPlayerDeviceRequest(device_id="browser-device-id")
                 )
@@ -88,3 +91,4 @@ class SpotifyAPITests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(token_payload["access_token"], "simulated-spotify-access-token")
             self.assertTrue(status["connected"])
             self.assertEqual(spotify.web_player_device_id, "browser-device-id")
+            self.assertFalse(spotify.web_player_pending)
