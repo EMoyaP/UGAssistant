@@ -67,6 +67,7 @@ class SpeechService:
         default_speech_rate: float = 0.85,
         max_text_length: int = 500,
         output_guard_seconds: float = 0.2,
+        chunk_pause_seconds: float = 0.25,
         on_status: SpeechStatusCallback | None = None,
         balance_provider: BalanceProvider | None = None,
     ) -> None:
@@ -76,6 +77,7 @@ class SpeechService:
         self._speech_rate = min(max(default_speech_rate, 0.6), 1.3)
         self._max_text_length = max(1, max_text_length)
         self._output_guard_seconds = max(0.0, output_guard_seconds)
+        self._chunk_pause_seconds = max(0.0, chunk_pause_seconds)
         self._on_status = on_status
         self._balance_provider = balance_provider
         self._selected_voice_id: str | None = None
@@ -177,12 +179,9 @@ class SpeechService:
         normalized_text = " ".join(text.split())
         if not normalized_text:
             raise ValueError("Text to synthesize cannot be empty")
-        if len(normalized_text) > self._max_text_length:
-            raise ValueError(
-                f"Text exceeds the {self._max_text_length} character limit"
-            )
         if self._lock.locked():
             raise SpeechBusyError("Another speech synthesis is already active")
+        chunks = self._split_text(normalized_text)
 
         async with self._lock:
             current_task = asyncio.current_task()
@@ -201,23 +200,29 @@ class SpeechService:
             if resume_monitoring:
                 await self._audio_service.disable_monitoring()
             try:
-                self._status = self._build_status(
-                    phase="synthesizing",
-                    busy=True,
-                )
-                await self._publish()
-                wav_bytes = await self._adapter.synthesize(
-                    normalized_text,
-                    voice.voice_id,
-                    self._speech_rate,
-                )
-                self._lip_sync_track = build_lip_sync_track(wav_bytes)
-                self._status = self._build_status(phase="playing", busy=True)
-                await self._publish()
                 balance = 0.0
                 if self._balance_provider is not None:
                     balance = min(max(float(self._balance_provider()), -1.0), 1.0)
-                await self._audio_service.play_wav(wav_bytes, balance=balance)
+                for index, chunk in enumerate(chunks):
+                    self._status = self._build_status(
+                        phase="synthesizing",
+                        busy=True,
+                    )
+                    await self._publish()
+                    wav_bytes = await self._adapter.synthesize(
+                        chunk,
+                        voice.voice_id,
+                        self._speech_rate,
+                    )
+                    self._lip_sync_track = build_lip_sync_track(wav_bytes)
+                    self._status = self._build_status(phase="playing", busy=True)
+                    await self._publish()
+                    await self._audio_service.play_wav(wav_bytes, balance=balance)
+                    if (
+                        index < len(chunks) - 1
+                        and self._chunk_pause_seconds > 0
+                    ):
+                        await asyncio.sleep(self._chunk_pause_seconds)
                 if self._output_guard_seconds:
                     await asyncio.sleep(self._output_guard_seconds)
                 self._lip_sync_track = None
@@ -250,6 +255,31 @@ class SpeechService:
                         await self._audio_service.enable_monitoring()
                     except Exception:
                         logger.exception("audio_monitor_resume_after_speech_failed")
+
+    def _split_text(self, text: str) -> tuple[str, ...]:
+        if len(text) <= self._max_text_length:
+            return (text,)
+
+        chunks: list[str] = []
+        remaining = text
+        while len(remaining) > self._max_text_length:
+            candidates = (
+                remaining.rfind(". ", 0, self._max_text_length + 1),
+                remaining.rfind("? ", 0, self._max_text_length + 1),
+                remaining.rfind("! ", 0, self._max_text_length + 1),
+                remaining.rfind("; ", 0, self._max_text_length + 1),
+                remaining.rfind(" ", 0, self._max_text_length + 1),
+            )
+            boundary = max(candidates)
+            if boundary <= 0:
+                boundary = self._max_text_length
+            else:
+                boundary += 1
+            chunks.append(remaining[:boundary].strip())
+            remaining = remaining[boundary:].strip()
+        if remaining:
+            chunks.append(remaining)
+        return tuple(chunks)
 
     def _selected_voice(self) -> TTSVoice | None:
         return next(

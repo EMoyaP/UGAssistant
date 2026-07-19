@@ -19,7 +19,7 @@ from ugassistant.services.voice_assistant import VoiceAssistantService
 
 
 class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
-    async def test_wake_word_greets_then_answers_the_following_question(self) -> None:
+    async def test_wake_word_asks_response_detail_before_answering(self) -> None:
         adapter = SimulatedAudioAdapter()
         assistant: VoiceAssistantService | None = None
 
@@ -45,7 +45,11 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         inference_lock = asyncio.Lock()
         recognition = VoiceRecognitionService(
             SimulatedSTTAdapter(
-                responses=[("Hola", "es"), ("Que hora es?", "es")]
+                responses=[
+                    ("Hola", "es"),
+                    ("Que hora es?", "es"),
+                    ("completa", "es"),
+                ]
             ),
             audio,
             speech,
@@ -75,12 +79,21 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         await self._wait_for(lambda: adapter._on_audio_chunk is not None)
         adapter.emit_input_audio(0.0, silence_chunk)
         adapter.emit_input_audio(0.0, silence_chunk)
+        await self._wait_for(
+            lambda: assistant.status.phase == "listening_for_response_detail"
+        )
+
+        adapter.emit_input_audio(0.15, speech_chunk)
+        await self._wait_for(lambda: adapter._on_audio_chunk is not None)
+        adapter.emit_input_audio(0.0, silence_chunk)
+        adapter.emit_input_audio(0.0, silence_chunk)
         await self._wait_for(lambda: assistant.status.phase == "waiting_for_wake_word")
 
         self.assertEqual(assistant.status.answer, "Son las diez.")
-        self.assertEqual(
+        self.assertEqual(assistant.status.response_detail, "complete")
+        self.assertIn(
+            ("Quieres una respuesta corta o completa?", "es_ES-davefx-medium"),
             speech_adapter.synthesized,
-            [("¿Qué desea?", "es_ES-davefx-medium"), ("Son las diez.", "es_ES-davefx-medium")],
         )
         await assistant.shutdown()
         await audio.shutdown()
@@ -113,6 +126,9 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service._wake_language("hola!"), "es")
         self.assertEqual(service._wake_language("salut"), "fr")
         self.assertIsNone(service._wake_language("bonjour"))
+        self.assertEqual(service._response_detail("respuesta corta"), "short")
+        self.assertEqual(service._response_detail("reponse courte"), "short")
+        self.assertEqual(service._response_detail("respuesta completa"), "complete")
 
     async def test_reports_waiting_for_wake_word_when_monitoring_is_enabled(self) -> None:
         audio = AudioDeviceService(SimulatedAudioAdapter())

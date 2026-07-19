@@ -65,6 +65,7 @@ class SpeechRequest(BaseModel):
 class ConversationRequest(BaseModel):
     text: str
     language: str = "es"
+    response_detail: str = "short"
 
 
 class AssistantProfileRequest(BaseModel):
@@ -415,6 +416,7 @@ def create_app(
         ),
         max_text_length=settings.tts_max_text_length,
         output_guard_seconds=settings.tts_output_guard_seconds,
+        chunk_pause_seconds=settings.tts_chunk_pause_seconds,
         on_status=on_speech_status,
         balance_provider=current_spatial_balance,
     )
@@ -505,6 +507,8 @@ def create_app(
         max_history_turns=settings.llm_max_history_turns,
         max_response_characters=settings.llm_max_response_characters,
         max_tokens=settings.llm_max_tokens,
+        complete_max_response_characters=settings.llm_complete_max_response_characters,
+        complete_max_tokens=settings.llm_complete_max_tokens,
         temperature=settings.llm_temperature,
         on_status=on_conversation_status,
     )
@@ -981,7 +985,11 @@ def create_app(
     @app.post("/api/llm/ask")
     async def ask_llm(request: ConversationRequest) -> dict[str, object]:
         try:
-            answer = await conversation_service.answer(request.text, request.language)
+            answer = await conversation_service.answer(
+                request.text,
+                request.language,
+                request.response_detail,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except RuntimeError as exc:

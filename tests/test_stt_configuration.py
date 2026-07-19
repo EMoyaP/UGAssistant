@@ -55,6 +55,14 @@ class STTConfigurationTests(unittest.TestCase):
 
         self.assertEqual(settings.llm_model, "qwen3:1.7b")
         self.assertEqual(settings.llm_base_url, "http://127.0.0.1:11434")
+        self.assertGreater(
+            settings.llm_complete_max_response_characters,
+            settings.llm_max_response_characters,
+        )
+        self.assertGreater(
+            settings.llm_complete_max_tokens,
+            settings.llm_max_tokens,
+        )
         self.assertEqual(settings.wake_spanish_words, ("hola",))
         self.assertEqual(settings.wake_french_words, ("salut",))
         self.assertEqual(settings.stt_silence_seconds, 2.0)

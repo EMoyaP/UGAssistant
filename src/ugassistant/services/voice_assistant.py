@@ -27,6 +27,7 @@ class VoiceAssistantStatus:
     question: str = ""
     answer: str = ""
     language: str | None = None
+    response_detail: str = "short"
 
     def to_dict(self) -> dict[str, object]:
         return self.__dict__.copy()
@@ -158,15 +159,37 @@ class VoiceAssistantService:
             question = await self._recognition_service.recognize_once()
             await self._set_status(
                 busy=True,
+                phase="asking_response_detail",
+                detail="waiting_for_response_detail",
+                wake_transcript=wake.text,
+                question=question.text,
+                language=question.language,
+            )
+            response_detail = await self._ask_response_detail(question.language)
+            if self._end_requested:
+                await self._set_status(
+                    busy=False,
+                    phase="waiting_for_wake_word",
+                    detail="ended_by_gesture",
+                    wake_transcript=wake.text,
+                    question=question.text,
+                    language=question.language,
+                    response_detail=response_detail,
+                )
+                return
+            await self._set_status(
+                busy=True,
                 phase="thinking",
                 detail="asking_ollama",
                 wake_transcript=wake.text,
                 question=question.text,
                 language=question.language,
+                response_detail=response_detail,
             )
             answer = await self._conversation_service.answer(
                 question.text,
                 question.language,
+                response_detail,
             )
             await self._speech_service.select_language(
                 "fr_FR" if question.language.casefold() == "fr" else "es_ES"
@@ -179,12 +202,14 @@ class VoiceAssistantService:
                 question=question.text,
                 answer=answer,
                 language=question.language,
+                response_detail=response_detail,
             )
             await self._complete_answer_loop(
                 wake.text,
                 question.text,
                 answer,
                 question.language,
+                response_detail,
             )
         except asyncio.CancelledError:
             await self._set_status(busy=False, phase="waiting_for_wake_word", detail="cancelled")
@@ -209,6 +234,7 @@ class VoiceAssistantService:
         question: str,
         answer: str,
         language: str,
+        response_detail: str,
     ) -> None:
         await self._speech_service.speak(answer)
         locale = "fr_FR" if language.casefold() == "fr" else "es_ES"
@@ -223,6 +249,7 @@ class VoiceAssistantService:
                 question=question,
                 answer=answer,
                 language=language,
+                response_detail=response_detail,
             )
             return
         if self._follow_up_wait_seconds <= 0:
@@ -234,6 +261,7 @@ class VoiceAssistantService:
                 question=question,
                 answer=answer,
                 language=language,
+                response_detail=response_detail,
             )
             return
 
@@ -252,6 +280,7 @@ class VoiceAssistantService:
                 question=question,
                 answer=answer,
                 language=language,
+                response_detail=response_detail,
             )
             try:
                 follow_up = await self._recognition_service.recognize_once(
@@ -283,8 +312,13 @@ class VoiceAssistantService:
                 question=question,
                 answer=answer,
                 language=language,
+                response_detail=response_detail,
             )
-            answer = await self._conversation_service.answer(question, language)
+            answer = await self._conversation_service.answer(
+                question,
+                language,
+                response_detail,
+            )
             await self._speech_service.select_language(locale)
             await self._set_status(
                 busy=True,
@@ -294,6 +328,7 @@ class VoiceAssistantService:
                 question=question,
                 answer=answer,
                 language=language,
+                response_detail=response_detail,
             )
             await self._speech_service.speak(answer)
 
@@ -305,7 +340,43 @@ class VoiceAssistantService:
             question=question,
             answer=answer,
             language=language,
+            response_detail=response_detail,
         )
+
+    async def _ask_response_detail(self, language: str) -> str:
+        locale = "fr_FR" if language.casefold() == "fr" else "es_ES"
+        prompt = (
+            "Voulez-vous une reponse courte ou complete ?"
+            if locale == "fr_FR"
+            else "Quieres una respuesta corta o completa?"
+        )
+        await self._speech_service.select_language(locale)
+        await self._speech_service.speak(prompt)
+        await self._set_status(
+            busy=True,
+            phase="listening_for_response_detail",
+            detail="waiting_for_response_detail",
+            language=language,
+        )
+        try:
+            choice = await self._recognition_service.recognize_once(
+                wait_for_speech_seconds=(
+                    self._follow_up_wait_seconds
+                    if self._follow_up_wait_seconds > 0
+                    else 5.0
+                )
+            )
+        except NoSpeechDetectedError:
+            return "complete"
+        return self._response_detail(choice.text)
+
+    @classmethod
+    def _response_detail(cls, transcript: str) -> str:
+        normalized = cls._normalize(transcript)
+        short_words = ("corta", "corto", "breve", "court", "courte")
+        if any(re.search(rf"\b{word}\b", normalized) for word in short_words):
+            return "short"
+        return "complete"
 
     def _is_session_end(self, transcript: str) -> bool:
         normalized = self._normalize(transcript)

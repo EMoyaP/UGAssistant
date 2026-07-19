@@ -34,6 +34,32 @@ class ConversationServiceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await service.answer("Hello", "en")
 
+    async def test_complete_response_uses_a_detailed_prompt_and_larger_limit(self) -> None:
+        response = " ".join(["explicacion"] * 90)
+        adapter = SimulatedLLMAdapter(response=response)
+        service = ConversationService(
+            adapter,
+            inference_lock=asyncio.Lock(),
+            max_response_characters=80,
+            max_tokens=32,
+            complete_max_response_characters=1200,
+            complete_max_tokens=384,
+        )
+
+        answer = await service.answer("Explica el proceso", "es", "complete")
+
+        self.assertEqual(answer, response)
+        self.assertIn("respuesta completa", adapter.messages[-1][0].content)
+
+    async def test_rejects_unknown_response_detail(self) -> None:
+        service = ConversationService(
+            SimulatedLLMAdapter(),
+            inference_lock=asyncio.Lock(),
+        )
+
+        with self.assertRaises(ValueError):
+            await service.answer("Explica el proceso", "es", "extended")
+
 
 if __name__ == "__main__":
     unittest.main()

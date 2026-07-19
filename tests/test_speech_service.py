@@ -125,20 +125,26 @@ class SpeechServiceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await service.select_voice("another-voice")
 
-    async def test_rejects_empty_or_oversized_text(self) -> None:
+    async def test_rejects_empty_text_and_splits_long_text(self) -> None:
         audio_service = AudioDeviceService(SimulatedAudioAdapter())
+        tts_adapter = SimulatedTTSAdapter()
         service = SpeechService(
-            SimulatedTTSAdapter(),
+            tts_adapter,
             audio_service,
             default_voice_id="es_ES-davefx-medium",
             max_text_length=5,
+            output_guard_seconds=0.0,
         )
         await audio_service.refresh()
+        await audio_service.enable_output()
 
         with self.assertRaises(ValueError):
             await service.speak("   ")
-        with self.assertRaises(ValueError):
-            await service.speak("demasiado largo")
+        await service.speak("uno dos tres")
+        self.assertEqual(
+            [text for text, _ in tts_adapter.synthesized],
+            ["uno", "dos", "tres"],
+        )
 
 
 if __name__ == "__main__":

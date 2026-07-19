@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Literal
 
 from ugassistant.domain.ports import LLMAdapter, LLMMessage
 
@@ -23,6 +24,7 @@ class ConversationStatus:
 
 
 ConversationStatusCallback = Callable[[ConversationStatus], Awaitable[None]]
+ResponseDetail = Literal["short", "complete"]
 
 
 class ConversationService:
@@ -34,6 +36,8 @@ class ConversationService:
         max_history_turns: int = 3,
         max_response_characters: int = 320,
         max_tokens: int = 160,
+        complete_max_response_characters: int = 1200,
+        complete_max_tokens: int = 384,
         temperature: float = 0.4,
         on_status: ConversationStatusCallback | None = None,
     ) -> None:
@@ -42,6 +46,11 @@ class ConversationService:
         self._max_history_messages = max(0, max_history_turns) * 2
         self._max_response_characters = max(32, max_response_characters)
         self._max_tokens = max(16, max_tokens)
+        self._complete_max_response_characters = max(
+            self._max_response_characters,
+            complete_max_response_characters,
+        )
+        self._complete_max_tokens = max(self._max_tokens, complete_max_tokens)
         self._temperature = min(max(temperature, 0.0), 2.0)
         self._on_status = on_status
         self._history: list[LLMMessage] = []
@@ -64,13 +73,20 @@ class ConversationService:
             await self._publish()
         return self._status
 
-    async def answer(self, question: str, language: str) -> str:
+    async def answer(
+        self,
+        question: str,
+        language: str,
+        response_detail: ResponseDetail = "short",
+    ) -> str:
         normalized_question = " ".join(question.split())
         normalized_language = language.casefold()
         if normalized_language not in {"es", "fr"}:
             raise ValueError(f"Unsupported conversation language: {language}")
         if not normalized_question:
             raise ValueError("Question cannot be empty")
+        if response_detail not in {"short", "complete"}:
+            raise ValueError(f"Unsupported response detail: {response_detail}")
         if self._lock.locked():
             raise RuntimeError("Conversation is already active")
 
@@ -88,7 +104,10 @@ class ConversationService:
                 language=normalized_language,
             )
             messages = (
-                LLMMessage("system", self._system_prompt(normalized_language)),
+                LLMMessage(
+                    "system",
+                    self._system_prompt(normalized_language, response_detail),
+                ),
                 *self._history[-self._max_history_messages :],
                 LLMMessage("user", normalized_question),
             )
@@ -96,10 +115,10 @@ class ConversationService:
                 async with self._inference_lock:
                     raw_answer = await self._adapter.chat(
                         tuple(messages),
-                        max_tokens=self._max_tokens,
+                        max_tokens=self._max_tokens_for(response_detail),
                         temperature=self._temperature,
                     )
-                answer = self._short_response(raw_answer)
+                answer = self._compact_response(raw_answer, response_detail)
                 if not answer:
                     raise RuntimeError("Ollama returned an empty response")
                 self._history.extend(
@@ -136,7 +155,22 @@ class ConversationService:
                 raise
 
     @staticmethod
-    def _system_prompt(language: str) -> str:
+    def _system_prompt(language: str, response_detail: ResponseDetail) -> str:
+        if response_detail == "complete":
+            if language == "fr":
+                return (
+                    "Tu es UGAssistant, un assistant local. Reponds uniquement en "
+                    "francais avec une reponse complete, exacte et pratique. Inclus le "
+                    "contexte et les etapes necessaires pour resoudre la demande. "
+                    "Utilise des phrases claires sans markdown et evite les details "
+                    "inventes."
+                )
+            return (
+                "Eres UGAssistant, un asistente local. Responde solo en espanol con "
+                "una respuesta completa, exacta y practica. Incluye el contexto y los "
+                "pasos necesarios para resolver la duda. Usa frases claras sin markdown "
+                "y evita inventar detalles."
+            )
         if language == "fr":
             return (
                 "Tu es UGAssistant, un assistant local. Reponds uniquement en "
@@ -147,11 +181,27 @@ class ConversationService:
             "de forma util y breve, en un maximo de dos frases."
         )
 
-    def _short_response(self, response: str) -> str:
+    def _max_tokens_for(self, response_detail: ResponseDetail) -> int:
+        return (
+            self._complete_max_tokens
+            if response_detail == "complete"
+            else self._max_tokens
+        )
+
+    def _compact_response(
+        self,
+        response: str,
+        response_detail: ResponseDetail,
+    ) -> str:
         compact = " ".join(response.split())
-        if len(compact) <= self._max_response_characters:
+        max_characters = (
+            self._complete_max_response_characters
+            if response_detail == "complete"
+            else self._max_response_characters
+        )
+        if len(compact) <= max_characters:
             return compact
-        shortened = compact[: self._max_response_characters].rsplit(" ", 1)[0]
+        shortened = compact[:max_characters].rsplit(" ", 1)[0]
         return shortened.rstrip(".,;: ") + "."
 
     async def _set_status(self, **values: object) -> None:

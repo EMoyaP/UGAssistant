@@ -29,10 +29,13 @@ La aplicacion incluye:
 - Turno por palabra de activacion local: `hola` inicia el turno en espanol y
   `salut` lo inicia en frances; despues escucha la pregunta y la procesa localmente.
 - LLM local mediante Ollama y el modelo bloqueado `qwen3:1.7b`, con historial
-  limitado, respuestas breves y una unica inferencia pesada simultanea.
+  limitado, una unica inferencia pesada simultanea y eleccion verbal entre
+  respuesta corta o completa antes de cada consulta.
 - Sintesis de texto local con Piper y las voces bloqueadas
   `es_ES-davefx-medium` y `fr_FR-tom-medium`.
-- Reproduccion por el altavoz seleccionado, volumen y velocidad configurables y sincronizacion labial por RMS.
+- Reproduccion por el altavoz seleccionado, volumen y velocidad configurables,
+  sincronizacion labial por RMS y fragmentacion de respuestas extensas con una
+  pausa breve configurable entre partes.
 - Paneo estereo suave segun la posicion horizontal del rostro detectado.
 - Gestos geometricos: puno, palma, senalar, pulgar arriba/abajo y victoria.
 - El avatar sonrie con pulgar arriba y muestra tristeza con lagrimas con pulgar abajo.
@@ -168,8 +171,9 @@ segundo flujo de audio.
 
 Con microfono y altavoz activos, el modo normal queda esperando `hola` o
 `salut`. Tras reconocerlos, saluda en espanol o frances, espera una segunda
-frase y envia solo esa pregunta a `qwen3:1.7b` por la API local de Ollama. La
-respuesta se reproduce con DaveFX o Tom segun el idioma transcrito. Si la
+frase y pregunta si se desea una respuesta `corta` o `completa` antes de enviar
+la consulta a `qwen3:1.7b` por la API local de Ollama. La respuesta se
+reproduce con DaveFX o Tom segun el idioma transcrito. Si la
 primera frase no contiene una de esas palabras, se descarta. Cada captura se
 cierra tras dos segundos de silencio y vuelve a reposo si no hay activacion o
 pregunta. El breve bufer necesario para no cortar la activacion permanece solo
