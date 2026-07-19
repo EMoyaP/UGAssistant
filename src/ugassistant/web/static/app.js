@@ -251,9 +251,8 @@ function applySpotifyStatus(payload) {
   spotifyStatus = payload;
   const playback = payload.playback || null;
   const isPlaying = Boolean(playback?.is_playing);
-  // Keep the player available after OAuth completes, even before the first track.
-  // The avatar only switches to its music expression while playback is active.
-  shell.dataset.spotify = payload.connected ? "true" : "false";
+  // The player and music expression are reserved for active playback.
+  shell.dataset.spotify = isPlaying ? "true" : "false";
   shell.dataset.spotifyPlaying = isPlaying ? "true" : "false";
   spotifyTrackTitle.textContent = playback?.title || "Sin reproduccion";
   spotifyTrackArtist.textContent = playback?.artists || "Di que musica quieres escuchar";
