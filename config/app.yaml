@@ -39,8 +39,8 @@ llm:
   max_history_turns: 3
   max_response_characters: 320
   max_tokens: 160
-  complete_max_response_characters: 1200
-  complete_max_tokens: 384
+  complete_max_response_characters: 2200
+  complete_max_tokens: 640
   temperature: 0.4
 wake_word:
   spanish_words: ["hola"]

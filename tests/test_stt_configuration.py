@@ -63,6 +63,8 @@ class STTConfigurationTests(unittest.TestCase):
             settings.llm_complete_max_tokens,
             settings.llm_max_tokens,
         )
+        self.assertEqual(settings.llm_complete_max_response_characters, 2200)
+        self.assertEqual(settings.llm_complete_max_tokens, 640)
         self.assertEqual(settings.wake_spanish_words, ("hola",))
         self.assertEqual(settings.wake_french_words, ("salut",))
         self.assertEqual(settings.stt_silence_seconds, 2.0)

@@ -37,8 +37,8 @@ class ConversationService:
         max_history_turns: int = 3,
         max_response_characters: int = 320,
         max_tokens: int = 160,
-        complete_max_response_characters: int = 1200,
-        complete_max_tokens: int = 384,
+        complete_max_response_characters: int = 2200,
+        complete_max_tokens: int = 640,
         temperature: float = 0.4,
         on_status: ConversationStatusCallback | None = None,
     ) -> None:
@@ -169,9 +169,10 @@ class ConversationService:
                 )
             return (
                 "Eres UGAssistant, un asistente local. Responde solo en espanol con "
-                "una respuesta completa, exacta y practica. Incluye el contexto y los "
-                "pasos necesarios para resolver la duda. Usa frases claras sin markdown, "
-                "asteriscos, almohadillas o listas con guiones y evita inventar detalles."
+                    "una respuesta completa, exacta y practica. Incluye el contexto y los "
+                    "pasos necesarios para resolver la duda. Usa frases claras sin markdown, "
+                    "asteriscos, almohadillas o listas con guiones y evita inventar detalles. "
+                    "Cierra la respuesta con una conclusion clara."
             )
         if language == "fr":
             return (

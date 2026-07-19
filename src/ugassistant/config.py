@@ -56,8 +56,8 @@ class AppSettings:
     llm_max_history_turns: int = 3
     llm_max_response_characters: int = 320
     llm_max_tokens: int = 160
-    llm_complete_max_response_characters: int = 1200
-    llm_complete_max_tokens: int = 384
+    llm_complete_max_response_characters: int = 2200
+    llm_complete_max_tokens: int = 640
     llm_temperature: float = 0.4
     wake_spanish_words: tuple[str, ...] = ("hola",)
     wake_french_words: tuple[str, ...] = ("salut",)
@@ -306,12 +306,12 @@ def load_app_settings(project_root: Path = PROJECT_ROOT) -> AppSettings:
         ),
         llm_max_tokens=min(max(int(llm.get("max_tokens", 160)), 16), 512),
         llm_complete_max_response_characters=min(
-            max(int(llm.get("complete_max_response_characters", 1200)), 320),
-            2400,
+            max(int(llm.get("complete_max_response_characters", 2200)), 320),
+            3200,
         ),
         llm_complete_max_tokens=min(
-            max(int(llm.get("complete_max_tokens", 384)), 160),
-            512,
+            max(int(llm.get("complete_max_tokens", 640)), 160),
+            768,
         ),
         llm_temperature=min(
             max(float(llm.get("temperature", 0.4)), 0.0),
