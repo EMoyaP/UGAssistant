@@ -149,6 +149,10 @@ Antes de implementar una fase:
 
 No descargar modelos pesados automáticamente durante las pruebas.
 
+## Publicacion de cambios
+
+Al completar una orden con verificacion satisfactoria, crear un commit descriptivo y hacer push a `origin/main`, salvo indicacion expresa de no publicar los cambios.
+
 ## Comandos esperados
 
 El repositorio debe proporcionar progresivamente:
