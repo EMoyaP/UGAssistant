@@ -7,6 +7,11 @@ import unicodedata
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
+from ugassistant.domain.spotify import (
+    SpotifyError,
+    SpotifyNotConfiguredError,
+    SpotifyNotConnectedError,
+)
 from ugassistant.services.audio import AudioDeviceService, AudioStatus
 from ugassistant.services.conversation import ConversationService
 from ugassistant.services.recognition import VoiceRecognitionService
@@ -242,7 +247,7 @@ class VoiceAssistantService:
         request = self._music_request(question)
         if request is None:
             return False
-        action, query = request
+        action, query, prefer_artist = request
         locale = "fr_FR" if language.casefold() == "fr" else "es_ES"
         if self._spotify_service is None:
             return False
@@ -310,7 +315,10 @@ class VoiceAssistantService:
             language=language,
         )
         try:
-            status = await self._spotify_service.play_query(query)
+            status = await self._spotify_service.play_query(
+                query,
+                prefer_artist=prefer_artist,
+            )
             playback = status.playback
             if playback is None or not playback.title:
                 raise RuntimeError("Spotify playback did not start")
@@ -319,13 +327,9 @@ class VoiceAssistantService:
                 if locale == "fr_FR"
                 else f"Reproduciendo {playback.title}, de {playback.artists}."
             )
-        except Exception:
+        except (SpotifyError, RuntimeError) as exc:
             logger.exception("spotify_play_by_voice_failed")
-            response = (
-                "Necesito que conectes Spotify desde Configuracion y tengas un dispositivo Spotify activo."
-                if locale == "es_ES"
-                else "Connectez Spotify dans Configuration et activez un appareil Spotify."
-            )
+            response = self._spotify_error_response(exc, locale)
         await self._speech_service.select_language(locale)
         await self._speech_service.speak(response)
         await self._set_status(
@@ -337,8 +341,32 @@ class VoiceAssistantService:
         )
         return True
 
+    @staticmethod
+    def _spotify_error_response(error: Exception, locale: str) -> str:
+        if isinstance(error, SpotifyNotConfiguredError):
+            return (
+                "Configura Spotify desde Configuracion antes de pedir musica."
+                if locale == "es_ES"
+                else "Configurez Spotify dans Configuration avant de demander de la musique."
+            )
+        if isinstance(error, SpotifyNotConnectedError):
+            return (
+                "Spotify esta configurado, pero debes conectarlo desde Configuracion."
+                if locale == "es_ES"
+                else "Spotify est configure, mais vous devez le connecter dans Configuration."
+            )
+        return (
+            "Spotify esta conectado, pero no hay un reproductor activo o no se pudo iniciar la musica. "
+            "Abre Spotify en tu movil, ordenador o navegador, inicia una cancion y vuelve a pedirla. "
+            "El control remoto requiere Spotify Premium."
+            if locale == "es_ES"
+            else "Spotify est connecte, mais aucun lecteur actif n'est disponible ou la lecture n'a pas demarre. "
+            "Ouvrez Spotify sur votre telephone, ordinateur ou navigateur, lancez une chanson, puis redemandez-la. "
+            "Le controle a distance necessite Spotify Premium."
+        )
+
     @classmethod
-    def _music_request(cls, transcript: str) -> tuple[str, str] | None:
+    def _music_request(cls, transcript: str) -> tuple[str, str, bool] | None:
         normalized = cls._normalize(transcript)
         if any(
             word in normalized
@@ -347,7 +375,7 @@ class VoiceAssistantService:
                 "arrete", "arreter", "pause la musique",
             )
         ):
-            return ("stop", "")
+            return ("stop", "", False)
         music_words = ("musica", "spotify", "musique")
         starters = ("pon", "reproduce", "reproducir", "escucha", "joue", "mets")
         if not any(word in normalized for word in music_words) and not any(
@@ -372,7 +400,16 @@ class VoiceAssistantService:
             query,
             flags=re.IGNORECASE,
         ).strip()
-        return ("play", query)
+        track_cues = ("cancion", "tema", "song", "chanson")
+        prefer_artist = not any(cue in normalized for cue in track_cues)
+        if not prefer_artist:
+            query = re.sub(
+                r"^(la\s+)?(canci.n|tema|song|chanson)(\s+de)?\s*",
+                "",
+                query,
+                flags=re.IGNORECASE,
+            ).strip()
+        return ("play", query, prefer_artist)
 
     async def _complete_answer_loop(
         self,

@@ -4,6 +4,18 @@ from dataclasses import dataclass
 from typing import Protocol
 
 
+class SpotifyError(RuntimeError):
+    """Base error exposed by the optional Spotify integration."""
+
+
+class SpotifyNotConfiguredError(SpotifyError):
+    """Raised when no Spotify Client ID has been configured."""
+
+
+class SpotifyNotConnectedError(SpotifyError):
+    """Raised when the local OAuth authorization is unavailable or expired."""
+
+
 @dataclass(frozen=True)
 class SpotifyPlayback:
     track_id: str = ""
@@ -48,7 +60,12 @@ class SpotifyAdapter(Protocol):
     async def status(self) -> SpotifyStatus:
         ...
 
-    async def play_query(self, query: str) -> SpotifyStatus:
+    async def play_query(
+        self,
+        query: str,
+        *,
+        prefer_artist: bool = False,
+    ) -> SpotifyStatus:
         ...
 
     async def control(self, action: str) -> SpotifyStatus:

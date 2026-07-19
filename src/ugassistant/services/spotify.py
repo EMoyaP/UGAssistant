@@ -37,8 +37,15 @@ class SpotifyService:
             await self._adapter.complete_authorization(code, state)
         )
 
-    async def play_query(self, query: str) -> SpotifyStatus:
-        return await self._publish(await self._adapter.play_query(query))
+    async def play_query(
+        self,
+        query: str,
+        *,
+        prefer_artist: bool = False,
+    ) -> SpotifyStatus:
+        return await self._publish(
+            await self._adapter.play_query(query, prefer_artist=prefer_artist)
+        )
 
     async def control(self, action: str) -> SpotifyStatus:
         return await self._publish(await self._adapter.control(action))

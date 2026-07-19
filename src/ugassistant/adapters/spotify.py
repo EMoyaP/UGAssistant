@@ -15,19 +15,13 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from ugassistant.domain.spotify import SpotifyPlayback, SpotifyStatus
-
-
-class SpotifyError(RuntimeError):
-    pass
-
-
-class SpotifyNotConfiguredError(SpotifyError):
-    pass
-
-
-class SpotifyNotConnectedError(SpotifyError):
-    pass
+from ugassistant.domain.spotify import (
+    SpotifyError,
+    SpotifyNotConfiguredError,
+    SpotifyNotConnectedError,
+    SpotifyPlayback,
+    SpotifyStatus,
+)
 
 
 @dataclass(frozen=True)
@@ -246,10 +240,34 @@ class SpotifyWebAPIAdapter:
             playback=playback,
         )
 
-    async def play_query(self, query: str) -> SpotifyStatus:
+    async def play_query(
+        self,
+        query: str,
+        *,
+        prefer_artist: bool = False,
+    ) -> SpotifyStatus:
         normalized_query = " ".join(query.split())
         if not normalized_query:
             raise ValueError("Spotify query cannot be empty")
+        if prefer_artist:
+            artist_payload = await self._api_request(
+                "GET",
+                "/search?" + urlencode(
+                    {"q": normalized_query, "type": "artist", "limit": 1, "market": self._market}
+                ),
+            )
+            artists = artist_payload.get("artists", {}).get("items", [])
+            if artists:
+                artist = artists[0]
+                artist_uri = str(artist.get("uri", "")).strip()
+                if artist_uri:
+                    await self._api_request(
+                        "PUT",
+                        "/me/player/play",
+                        {"context_uri": artist_uri},
+                        allow_empty=True,
+                    )
+                    return await self.status()
         payload = await self._api_request(
             "GET",
             "/search?" + urlencode(

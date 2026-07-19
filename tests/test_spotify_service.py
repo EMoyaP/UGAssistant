@@ -20,6 +20,10 @@ class SpotifyServiceTests(unittest.IsolatedAsyncioTestCase):
         playing = await service.play_query("Queen")
         self.assertTrue(playing.playback is not None and playing.playback.is_playing)
         self.assertEqual(adapter.played_queries, ["Queen"])
+        self.assertEqual(adapter.played_query_preferences, [False])
+
+        await service.play_query("Madonna", prefer_artist=True)
+        self.assertEqual(adapter.played_query_preferences, [False, True])
 
         stopped = await service.stop()
         self.assertFalse(stopped.playback is not None and stopped.playback.is_playing)

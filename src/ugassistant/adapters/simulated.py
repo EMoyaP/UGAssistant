@@ -278,6 +278,7 @@ class SimulatedSpotifyAdapter:
         self.connected = False
         self.playback: SpotifyPlayback | None = None
         self.played_queries: list[str] = []
+        self.played_query_preferences: list[bool] = []
         self.controls: list[str] = []
 
     def configure(self, client_id: str) -> None:
@@ -305,10 +306,16 @@ class SimulatedSpotifyAdapter:
             playback=self.playback,
         )
 
-    async def play_query(self, query: str) -> SpotifyStatus:
+    async def play_query(
+        self,
+        query: str,
+        *,
+        prefer_artist: bool = False,
+    ) -> SpotifyStatus:
         if not self.connected:
             raise RuntimeError("Spotify is not connected")
         self.played_queries.append(query)
+        self.played_query_preferences.append(prefer_artist)
         self.playback = SpotifyPlayback(
             track_id="simulated-track",
             title=query,

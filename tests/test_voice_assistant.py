@@ -11,6 +11,11 @@ from ugassistant.adapters.simulated import (
     SimulatedSTTAdapter,
     SimulatedTTSAdapter,
 )
+from ugassistant.domain.spotify import (
+    SpotifyError,
+    SpotifyNotConfiguredError,
+    SpotifyNotConnectedError,
+)
 from ugassistant.services.audio import AudioDeviceService, AudioStatus
 from ugassistant.services.conversation import ConversationService
 from ugassistant.services.recognition import VoiceRecognitionService
@@ -131,11 +136,19 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service._response_detail("respuesta completa"), "complete")
         self.assertEqual(
             service._music_request("Pon musica de Queen"),
-            ("play", "Queen"),
+            ("play", "Queen", True),
         )
         self.assertEqual(
             service._music_request("Deten la reproduccion"),
-            ("stop", ""),
+            ("stop", "", False),
+        )
+        self.assertEqual(
+            service._music_request("Reproduce Madonna"),
+            ("play", "Madonna", True),
+        )
+        self.assertEqual(
+            service._music_request("Reproduce la cancion Like a Prayer"),
+            ("play", "Like a Prayer", False),
         )
 
     async def test_reports_waiting_for_wake_word_when_monitoring_is_enabled(self) -> None:
@@ -167,6 +180,26 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(service.status.detail, "monitoring_wake_word")
         await audio.shutdown()
+
+    def test_explains_the_actual_spotify_playback_problem(self) -> None:
+        self.assertIn(
+            "Configura Spotify",
+            VoiceAssistantService._spotify_error_response(
+                SpotifyNotConfiguredError("missing client id"), "es_ES"
+            ),
+        )
+        self.assertIn(
+            "debes conectarlo",
+            VoiceAssistantService._spotify_error_response(
+                SpotifyNotConnectedError("missing token"), "es_ES"
+            ),
+        )
+        self.assertIn(
+            "reproductor activo",
+            VoiceAssistantService._spotify_error_response(
+                SpotifyError("no active device"), "es_ES"
+            ),
+        )
 
     async def _wait_for(self, predicate: Callable[[], bool], timeout: float = 1.0) -> None:
         loop = asyncio.get_running_loop()
