@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UGAssistant</title>
+    <link rel="stylesheet" href="/static/styles.css?v=17">
+  </head>
+  <body>
+    <main class="app-shell" data-state="IDLE" data-curious="false" data-mood="">
+      <section class="stage" aria-label="Avatar">
+        <div class="status-bar">
+          <div>
+            <p class="eyebrow">UGAssistant</p>
+            <h1 id="assistantPrompt">Di "hola" para hablar con UGAssistant</h1>
+            <span id="stateLabel" class="visually-hidden">IDLE</span>
+          </div>
+          <div class="local-summary" aria-label="Informacion local">
+            <time id="currentTime">--:--</time>
+            <span id="currentDate">--</span>
+          </div>
+          <button
+            id="settingsButton"
+            class="settings-trigger"
+            type="button"
+            aria-label="Abrir configuracion de dispositivos"
+            aria-haspopup="dialog"
+            title="Configuracion de dispositivos"
+          ><span aria-hidden="true">&#9881;</span></button>
+        </div>
+
+        <div class="avatar-wrap">
+          <div class="avatar" aria-hidden="true">
+            <div class="signal-ring ring-one"></div>
+            <div class="signal-ring ring-two"></div>
+            <div class="head">
+              <span class="brow left-brow"></span>
+              <span class="brow right-brow"></span>
+              <div class="eye left-eye"><span></span></div>
+              <div class="eye right-eye"><span></span></div>
+              <span class="tear left-tear"></span>
+              <span class="tear right-tear"></span>
+              <span class="cover-hand left-cover-hand"></span>
+              <span class="cover-hand right-cover-hand"></span>
+              <div class="mouth"></div>
+            </div>
+            <span class="listening-headphones"><i></i><i></i></span>
+            <svg class="thinking-hand" viewBox="5 18 21 18" focusable="false" aria-hidden="true">
+              <defs>
+                <linearGradient id="thinkingSkin" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#ffe994"></stop>
+                  <stop offset="0.48" stop-color="#ffd35f"></stop>
+                  <stop offset="1" stop-color="#f7b83f"></stop>
+                </linearGradient>
+              </defs>
+              <g transform="translate(31 0) scale(-1 1)">
+                <path
+                  class="thinking-hand-shape"
+                  d="M17.276 35.149s1.265-.411 1.429-1.352c.173-.972-.624-1.167-.624-1.167s1.041-.208 1.172-1.376c.123-1.101-.861-1.363-.861-1.363s.97-.4 1.016-1.539c.038-.959-.995-1.428-.995-1.428s5.038-1.221 5.556-1.341c.516-.12 1.32-.615 1.069-1.694-.249-1.08-1.204-1.118-1.697-1.003-.494.115-6.744 1.566-8.9 2.068l-1.439.334c-.54.127-.785-.11-.404-.512.508-.536.833-1.129.946-2.113.119-1.035-.232-2.313-.433-2.809-.374-.921-1.005-1.649-1.734-1.899-1.137-.39-1.945.321-1.542 1.561.604 1.854.208 3.375-.833 4.293-2.449 2.157-3.588 3.695-2.83 6.973.828 3.575 4.377 5.876 7.952 5.048l3.152-.681z"
+                ></path>
+                <path class="thinking-hand-crease" d="M17.05 27.05c-1.18.43-2.31.7-3.4.82M17.92 29.95c-.93.36-1.84.56-2.72.62"></path>
+              </g>
+            </svg>
+            <div class="sleep-symbols"><span>z</span><span>Z</span><span>Z</span></div>
+            <div class="body-glow"></div>
+          </div>
+        </div>
+
+        <div id="cameraPreview" class="camera-preview" hidden>
+          <img id="cameraFeed" alt="Vista previa de la camara local">
+          <span class="preview-status"><span class="preview-dot"></span><span id="presenceText">Buscando rostro</span></span>
+        </div>
+
+        <div class="state-line">
+          <span id="connectionDot" class="dot"></span>
+          <span id="connectionText">Conectando</span>
+          <span id="updatedAt"></span>
+        </div>
+      </section>
+
+      <aside class="controls" aria-label="Controles de desarrollo" hidden>
+        <h2>Estados</h2>
+        <div class="state-buttons">
+          <button type="button" data-next-state="IDLE">IDLE</button>
+          <button type="button" data-next-state="PERSON_DETECTED">PERSON_DETECTED</button>
+          <button type="button" data-next-state="LISTENING">LISTENING</button>
+          <button type="button" data-next-state="THINKING">THINKING</button>
+          <button type="button" data-next-state="SPEAKING">SPEAKING</button>
+          <button type="button" data-next-state="ERROR">ERROR</button>
+        </div>
+        <div class="system-strip">
+          <div>
+            <span>Camara</span>
+            <strong id="cameraStatus">Inactiva</strong>
+          </div>
+          <div>
+            <span>Audio</span>
+            <strong id="audioStatus">Comprobando</strong>
+          </div>
+          <div>
+            <span>Perfil</span>
+            <strong>1024 x 600</strong>
+          </div>
+        </div>
+      </aside>
+
+      <aside id="conversationPanel" class="conversation-panel" aria-label="Conversacion actual">
+        <header>
+          <p>CONVERSACION</p>
+          <h2>Esta sesion</h2>
+        </header>
+        <div id="conversationTurns" class="conversation-turns" aria-live="polite">
+          <p class="conversation-empty">La conversacion aparecera aqui.</p>
+        </div>
+      </aside>
+    </main>
+
+    <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsTitle">
+      <form method="dialog" class="settings-panel">
+        <header class="settings-header">
+          <div>
+            <p>CONFIGURACION</p>
+            <h2 id="settingsTitle">Dispositivos</h2>
+          </div>
+          <button
+            id="settingsClose"
+            class="settings-close"
+            type="submit"
+            value="cancel"
+            aria-label="Cerrar configuracion"
+            title="Cerrar"
+          >&times;</button>
+        </header>
+
+        <div class="device-settings-list">
+          <section class="device-setting" aria-labelledby="assistantSettingTitle">
+            <div class="device-setting-heading">
+              <div>
+                <h3 id="assistantSettingTitle">Interaccion</h3>
+                <p>Palabras de activacion</p>
+              </div>
+            </div>
+            <label class="device-field" for="wakeSpanishInput">
+              <span>Palabra clave en castellano</span>
+              <input id="wakeSpanishInput" type="text" maxlength="40" autocomplete="off">
+            </label>
+            <label class="device-field" for="wakeFrenchInput">
+              <span>Palabra clave en frances</span>
+              <input id="wakeFrenchInput" type="text" maxlength="40" autocomplete="off">
+            </label>
+            <div class="profile-actions">
+              <button id="saveProfileButton" type="button" class="primary-button">Guardar</button>
+            </div>
+            <div class="debug-links">
+              <a href="/debug/camera" target="_blank" rel="noopener">Debug de camara</a>
+              <a href="/debug/audio" target="_blank" rel="noopener">Debug de audio</a>
+            </div>
+          </section>
+
+          <section class="device-setting" aria-labelledby="cameraSettingTitle">
+            <div class="device-setting-heading">
+              <div>
+                <h3 id="cameraSettingTitle">Camara</h3>
+                <p id="cameraSettingStatus">Inactiva</p>
+              </div>
+              <label class="switch-control" title="Activar o desactivar camara">
+                <input id="cameraToggle" type="checkbox" disabled>
+                <span aria-hidden="true"></span>
+                <span class="visually-hidden">Activar camara</span>
+              </label>
+            </div>
+            <label class="device-field" for="cameraSelect">
+              <span>Dispositivo de video</span>
+              <select id="cameraSelect" aria-label="Seleccionar camara">
+                <option value="-1">Ninguna</option>
+              </select>
+            </label>
+          </section>
+
+          <section class="device-setting" aria-labelledby="microphoneSettingTitle">
+            <div class="device-setting-heading">
+              <div>
+                <h3 id="microphoneSettingTitle">Microfono</h3>
+                <p id="microphoneSettingStatus">Inactivo</p>
+              </div>
+              <label class="switch-control" title="Activar o desactivar microfono">
+                <input id="micToggle" type="checkbox" disabled>
+                <span aria-hidden="true"></span>
+                <span class="visually-hidden">Activar microfono</span>
+              </label>
+            </div>
+            <label class="device-field" for="micSelect">
+              <span>Dispositivo de entrada</span>
+              <select id="micSelect" aria-label="Seleccionar microfono" disabled>
+                <option value="-1">Buscando...</option>
+              </select>
+            </label>
+            <span class="settings-level" aria-hidden="true"><span id="micLevelFill"></span></span>
+          </section>
+
+          <section class="device-setting" aria-labelledby="speakerSettingTitle">
+            <div class="device-setting-heading">
+              <div>
+                <h3 id="speakerSettingTitle">Altavoces</h3>
+                <p id="speakerSettingStatus">Inactivos</p>
+              </div>
+              <label class="switch-control" title="Activar o desactivar altavoces">
+                <input id="speakerToggle" type="checkbox" disabled>
+                <span aria-hidden="true"></span>
+                <span class="visually-hidden">Activar altavoces</span>
+              </label>
+            </div>
+            <label class="device-field" for="speakerSelect">
+              <span>Dispositivo de salida</span>
+              <select id="speakerSelect" aria-label="Seleccionar altavoz" disabled>
+                <option value="-1">Buscando...</option>
+              </select>
+            </label>
+            <label class="volume-field" for="speakerVolume">
+              <span>Volumen de salida <output id="speakerVolumeValue">100%</output></span>
+              <input id="speakerVolume" type="range" min="0" max="100" step="5" value="100" disabled>
+            </label>
+            <label class="volume-field" for="speechRate">
+              <span>Velocidad de voz <output id="speechRateValue">85%</output></span>
+              <input id="speechRate" type="range" min="60" max="130" step="5" value="85" disabled>
+            </label>
+            <label class="device-field" for="ttsLanguageSelect">
+              <span>Idioma del modelo de voz</span>
+              <select id="ttsLanguageSelect" aria-label="Seleccionar idioma de voz" disabled>
+                <option value="">Buscando...</option>
+              </select>
+            </label>
+            <label class="device-field" for="ttsVoiceSelect">
+              <span>Voz</span>
+              <select id="ttsVoiceSelect" aria-label="Seleccionar voz" disabled>
+                <option value="">Buscando...</option>
+              </select>
+            </label>
+          </section>
+        </div>
+
+        <footer class="settings-footer">
+          <span></span>
+          Procesamiento local
+          <button id="shutdownButton" class="shutdown-button" type="button">
+            Cerrar sistema
+          </button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script src="/static/app.js?v=18" defer></script>
+  </body>
+</html>

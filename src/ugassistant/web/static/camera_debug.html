@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UGAssistant - Vision local</title>
+    <link rel="stylesheet" href="/static/camera_debug.css">
+  </head>
+  <body>
+    <main class="debug-shell">
+      <header class="debug-header">
+        <div>
+          <a class="product-link" href="/">UGAssistant</a>
+          <h1>Vision local</h1>
+        </div>
+        <div class="connection" data-connected="false">
+          <span class="connection-dot" aria-hidden="true"></span>
+          <span id="connectionText">Conectando</span>
+        </div>
+      </header>
+
+      <section class="debug-content" aria-label="Monitor de vision">
+        <div class="camera-monitor">
+          <div class="video-stage">
+            <img id="cameraFeed" alt="Fotograma analizado por UGAssistant" hidden>
+            <div class="frame-guide" aria-hidden="true">
+              <span class="guide-horizontal"></span>
+              <span class="guide-vertical"></span>
+            </div>
+            <div class="monitor-label">
+              <span class="live-dot" aria-hidden="true"></span>
+              <span id="monitorLabel">CAMARA INACTIVA</span>
+            </div>
+            <div class="empty-state" id="emptyState">
+              <strong>Sin imagen</strong>
+              <span>Camara inactiva</span>
+            </div>
+          </div>
+        </div>
+
+        <aside class="telemetry" aria-label="Telemetria de vision">
+          <div class="telemetry-heading">
+            <span>PERCEPCION</span>
+            <strong id="assistantState">IDLE</strong>
+          </div>
+          <dl>
+            <div>
+              <dt>Dispositivo</dt>
+              <dd id="deviceName">Ninguno</dd>
+            </div>
+            <div>
+              <dt>Captura</dt>
+              <dd id="captureStatus">Inactiva</dd>
+            </div>
+            <div>
+              <dt>Resolucion</dt>
+              <dd id="resolution">--</dd>
+            </div>
+            <div>
+              <dt>Fotograma</dt>
+              <dd id="sequence">0</dd>
+            </div>
+            <div>
+              <dt>Detector</dt>
+              <dd>YuNet + MP-HandPose</dd>
+            </div>
+            <div>
+              <dt>Rostro</dt>
+              <dd id="faceDetected">No</dd>
+            </div>
+            <div>
+              <dt>Centro X</dt>
+              <dd id="faceX">--</dd>
+            </div>
+            <div>
+              <dt>Centro Y</dt>
+              <dd id="faceY">--</dd>
+            </div>
+            <div>
+              <dt>Puntos rostro</dt>
+              <dd id="faceLandmarks">0</dd>
+            </div>
+            <div>
+              <dt>Manos</dt>
+              <dd id="handCount">0</dd>
+            </div>
+            <div>
+              <dt>Dedos</dt>
+              <dd id="fingerCount">--</dd>
+            </div>
+            <div>
+              <dt>Por mano</dt>
+              <dd id="perHandFingerCount">--</dd>
+            </div>
+            <div>
+              <dt>Puntos</dt>
+              <dd id="handLandmarks">0</dd>
+            </div>
+            <div>
+              <dt>Gesto</dt>
+              <dd id="handGesture">--</dd>
+            </div>
+            <div>
+              <dt>Lateralidad</dt>
+              <dd id="handedness">--</dd>
+            </div>
+            <div>
+              <dt>Combinado</dt>
+              <dd id="combinedGesture">--</dd>
+            </div>
+          </dl>
+          <footer>
+            <span class="privacy-dot" aria-hidden="true"></span>
+            Procesamiento local - Sin grabacion
+          </footer>
+        </aside>
+      </section>
+    </main>
+    <script src="/static/camera_debug.js"></script>
+  </body>
+</html>

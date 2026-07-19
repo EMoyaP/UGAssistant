@@ -1,0 +1,87 @@
+app:
+  host: "127.0.0.1"
+  port: 8000
+performance:
+  camera_max_resolution: [640, 480]
+  face_detection_target_fps: [5, 10]
+  ui_target_fps: 30
+camera:
+  device_index: 0
+  enabled_by_default: false
+  preview_fps: 8
+  mirror_preview: true
+  model_path: "models/vision/face_detection_yunet_2023mar.onnx"
+  score_threshold: 0.75
+  nms_threshold: 0.3
+hands:
+  enabled: true
+  palm_model_path: "models/vision/palm_detection_mediapipe_2023feb.onnx"
+  hand_pose_model_path: "models/vision/handpose_estimation_mediapipe_2023feb.onnx"
+  inference_interval_frames: 3
+  max_hands: 2
+  palm_score_threshold: 0.6
+  palm_nms_threshold: 0.3
+  hand_score_threshold: 0.8
+  finger_count_stable_samples: 2
+audio:
+  activation_threshold: 0.015
+  release_threshold: 0.008
+  activation_samples: 2
+  silence_seconds: 0.8
+  block_duration_ms: 50
+  output_volume: 1.0
+  spatial_pan_enabled: true
+  spatial_pan_max: 0.65
+llm:
+  base_url: "http://127.0.0.1:11434"
+  model: "qwen3:1.7b"
+  timeout_seconds: 120.0
+  max_history_turns: 3
+  max_response_characters: 320
+  max_tokens: 160
+  temperature: 0.4
+wake_word:
+  spanish_words: ["hola"]
+  french_words: ["salut"]
+  spanish_greeting: "¿Qué desea?"
+  french_greeting: "Que puis-je faire pour vous ?"
+stt:
+  model_path: "models/stt/ggml-base.bin"
+  windows_executable: "tools/whisper/windows-amd64/whisper-cli.exe"
+  linux_arm64_executable: "tools/whisper/linux-arm64/whisper-cli"
+  threads: 4
+  process_timeout_seconds: 120.0
+  sample_rate: 16000
+  wait_for_speech_seconds: 8.0
+  silence_seconds: 2.0
+  max_recording_seconds: 20.0
+  pre_roll_seconds: 0.3
+  accepted_languages: ["es", "fr"]
+tts:
+  voice_id: "es_ES-davefx-medium"
+  voice_name: "DaveFX"
+  language: "es_ES"
+  model_path: "models/tts/es_ES-davefx-medium.onnx"
+  config_path: "models/tts/es_ES-davefx-medium.onnx.json"
+  french_voice_id: "fr_FR-tom-medium"
+  french_voice_name: "Tom"
+  french_language: "fr_FR"
+  french_model_path: "models/tts/fr_FR-tom-medium.onnx"
+  french_config_path: "models/tts/fr_FR-tom-medium.onnx.json"
+  windows_executable: "tools/piper/windows-amd64/piper.exe"
+  linux_arm64_executable: "tools/piper/linux-arm64/piper"
+  max_text_length: 500
+  process_timeout_seconds: 45.0
+  output_guard_seconds: 0.2
+  speech_rate: 0.85
+  length_scale: 1.0
+  noise_scale: 0.667
+  noise_w: 0.8
+privacy:
+  save_audio_by_default: false
+  save_video_by_default: false
+  telemetry_enabled: false
+development:
+  simulated_adapters: true
+persistence:
+  preferences_path: "data/preferences.yaml"

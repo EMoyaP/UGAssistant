@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UGAssistant - Audio local</title>
+    <link rel="stylesheet" href="/static/audio_debug.css?v=4">
+  </head>
+  <body>
+    <main class="audio-shell">
+      <header class="audio-header">
+        <div>
+          <a class="product-link" href="/">UGAssistant</a>
+          <h1>Audio local</h1>
+        </div>
+        <div class="connection" data-connected="false">
+          <span class="connection-dot" aria-hidden="true"></span>
+          <span id="connectionText">Conectando</span>
+        </div>
+      </header>
+
+      <section class="audio-content" aria-label="Monitor de audio">
+        <div class="monitor-zone">
+          <div class="device-controls">
+            <label>
+              <span>Entrada</span>
+              <select id="inputSelect" aria-label="Seleccionar entrada de audio" disabled>
+                <option value="-1">Buscando...</option>
+              </select>
+            </label>
+            <label>
+              <span>Salida</span>
+              <select id="outputSelect" aria-label="Seleccionar salida de audio" disabled>
+                <option value="-1">Buscando...</option>
+              </select>
+            </label>
+            <button id="monitorToggle" type="button" aria-pressed="false" disabled>
+              Activar micro
+            </button>
+          </div>
+
+          <div class="level-stage" data-sound="false" data-monitoring="false">
+            <div class="level-readout">
+              <strong id="levelValue">0.0000</strong>
+              <span>RMS</span>
+            </div>
+            <div class="level-track" aria-label="Nivel de entrada">
+              <span id="levelFill"></span>
+              <i id="thresholdMarker" aria-hidden="true"></i>
+            </div>
+            <div id="levelHistory" class="level-history" aria-hidden="true"></div>
+            <div class="detection-state">
+              <span class="live-dot" aria-hidden="true"></span>
+              <strong id="detectionText">MICRO APAGADO</strong>
+            </div>
+          </div>
+
+          <section class="speech-test" aria-labelledby="speechTestTitle">
+            <div class="speech-test-heading">
+              <div>
+                <h2 id="speechTestTitle">Prueba de voz</h2>
+                <span id="ttsStatus">Comprobando Piper</span>
+                <span id="sttStatus">Comprobando Whisper</span>
+                <span id="llmStatus">Comprobando Ollama</span>
+              </div>
+              <label>
+                <span>Voz</span>
+                <select id="voiceSelect" aria-label="Seleccionar voz" disabled>
+                  <option value="">Buscando...</option>
+                </select>
+              </label>
+            </div>
+            <div class="speech-compose">
+              <label for="speechText">
+                <span>Texto de prueba</span>
+                <textarea id="speechText" maxlength="500" rows="2">Hola, soy UGAssistant. Mi voz se procesa completamente en local.</textarea>
+              </label>
+              <button id="speakButton" type="button" disabled>
+                <span aria-hidden="true">&#9654;</span>
+                Reproducir
+              </button>
+              <button id="recognizeButton" type="button" data-active="false" disabled>
+                Reconocer voz
+              </button>
+            </div>
+            <p id="speechMessage" role="status" aria-live="polite"></p>
+          </section>
+        </div>
+
+        <aside class="telemetry" aria-label="Telemetria de audio">
+          <div class="telemetry-heading">
+            <span>AUDIO</span>
+            <strong id="assistantState">IDLE</strong>
+          </div>
+          <dl>
+            <div><dt>Entrada</dt><dd id="inputName">Ninguna</dd></div>
+            <div><dt>Salida</dt><dd id="outputName">Ninguna</dd></div>
+            <div><dt>Backend</dt><dd id="hostApi">--</dd></div>
+            <div><dt>Canales</dt><dd id="channelCount">--</dd></div>
+            <div><dt>Frecuencia</dt><dd id="sampleRate">--</dd></div>
+            <div><dt>Monitor</dt><dd id="monitorStatus">Inactivo</dd></div>
+            <div><dt>Nivel RMS</dt><dd id="rmsValue">0.0000</dd></div>
+            <div><dt>Umbral</dt><dd id="thresholdValue">0.0150</dd></div>
+            <div><dt>Sonido</dt><dd id="soundStatus">No</dd></div>
+            <div><dt>Entradas</dt><dd id="inputCount">0</dd></div>
+            <div><dt>Salidas</dt><dd id="outputCount">0</dd></div>
+            <div><dt>Volumen</dt><dd id="outputVolume">100%</dd></div>
+            <div><dt>Paneo</dt><dd id="outputBalance">Centro</dd></div>
+            <div><dt>Modelo TTS</dt><dd id="ttsModel">--</dd></div>
+            <div><dt>Idioma</dt><dd id="ttsLanguage">--</dd></div>
+            <div><dt>Modelo STT</dt><dd id="sttModel">--</dd></div>
+            <div><dt>Detectado</dt><dd id="detectedLanguage">--</dd></div>
+            <div><dt>Modelo LLM</dt><dd id="llmModel">--</dd></div>
+            <div><dt>Turno voz</dt><dd id="voiceTurn">--</dd></div>
+          </dl>
+          <footer>
+            <span class="privacy-dot" aria-hidden="true"></span>
+            Procesamiento local - Sin grabacion
+          </footer>
+        </aside>
+      </section>
+    </main>
+    <script src="/static/audio_debug.js?v=6"></script>
+  </body>
+</html>

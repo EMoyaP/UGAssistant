@@ -1,0 +1,2010 @@
+:root {
+  --bg: #101113;
+  --panel: #1b1e22;
+  --panel-strong: #242931;
+  --text: #f4f6f8;
+  --muted: #aeb7c2;
+  --line: #3b424c;
+  --idle: #71d8a1;
+  --person: #f0c85a;
+  --listen: #54b6ff;
+  --think: #c890ff;
+  --speak: #ff8f6b;
+  --error: #ff5c66;
+  --sleep: #8ca7d6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+select {
+  font: inherit;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.app-shell {
+  width: 100vw;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 292px;
+  background:
+    radial-gradient(circle at 45% 35%, rgba(255, 255, 255, 0.08), transparent 28rem),
+    linear-gradient(135deg, #111316, #17191d 48%, #101113);
+}
+
+.stage {
+  min-width: 0;
+  min-height: 600px;
+  padding: 28px 32px 24px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  position: relative;
+}
+
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.settings-trigger,
+.settings-close {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.settings-trigger {
+  width: 48px;
+  height: 48px;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.settings-trigger:hover,
+.settings-trigger:focus-visible,
+.settings-close:hover,
+.settings-close:focus-visible {
+  border-color: var(--idle);
+  background: var(--panel-strong);
+  outline: 0;
+}
+
+.settings-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.58);
+}
+
+.settings-dialog::backdrop {
+  background: rgba(4, 6, 8, 0.76);
+}
+
+.settings-panel {
+  max-height: calc(100vh - 34px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.settings-header {
+  min-height: 76px;
+  padding: 15px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+  background: #161a1e;
+}
+
+.settings-header p {
+  margin: 0 0 4px;
+  color: var(--idle);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 23px;
+  letter-spacing: 0;
+}
+
+.settings-close {
+  width: 40px;
+  height: 40px;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.device-settings-list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.device-setting {
+  padding: 14px 20px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.device-setting:last-child {
+  border-bottom: 0;
+}
+
+.device-setting-heading {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.device-setting h3 {
+  margin: 0 0 3px;
+  font-size: 17px;
+  letter-spacing: 0;
+}
+
+.device-setting-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.switch-control {
+  flex: 0 0 auto;
+  position: relative;
+  width: 48px;
+  height: 27px;
+  cursor: pointer;
+}
+
+.switch-control input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.switch-control > span:first-of-type {
+  position: absolute;
+  inset: 0;
+  border: 1px solid #56606b;
+  border-radius: 14px;
+  background: #30363d;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.switch-control > span:first-of-type::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #d7dde3;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.switch-control input:checked + span {
+  border-color: var(--idle);
+  background: rgba(113, 216, 161, 0.22);
+}
+
+.switch-control input:checked + span::after {
+  background: var(--idle);
+  transform: translateX(21px);
+}
+
+.switch-control input:focus-visible + span {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.switch-control input:disabled + span {
+  opacity: 0.42;
+}
+
+.switch-control:has(input:disabled) {
+  cursor: not-allowed;
+}
+
+.device-field {
+  display: grid;
+  gap: 5px;
+}
+
+.device-field > span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.device-field select {
+  width: 100%;
+  height: 40px;
+  min-width: 0;
+  padding: 0 34px 0 11px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--panel-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.device-field input[type="text"] {
+  width: 100%;
+  height: 40px;
+  min-width: 0;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--panel-strong);
+}
+
+.device-field input[type="text"]:focus-visible {
+  border-color: var(--idle);
+  outline: 0;
+}
+
+.profile-actions,
+.debug-links {
+  margin-top: 11px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.primary-button,
+.secondary-button,
+.debug-links a {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--panel-strong);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary-button {
+  border-color: var(--idle);
+  background: rgba(113, 216, 161, 0.13);
+}
+
+.primary-button:hover,
+.secondary-button:hover,
+.debug-links a:hover {
+  border-color: var(--idle);
+}
+
+.device-field select:focus-visible {
+  border-color: var(--idle);
+  outline: 0;
+}
+
+.device-field select:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.volume-field {
+  margin-top: 11px;
+  display: grid;
+  gap: 7px;
+}
+
+.volume-field + .device-field {
+  margin-top: 11px;
+}
+
+.device-field + .device-field {
+  margin-top: 11px;
+}
+
+.volume-field > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.volume-field output {
+  color: var(--text);
+  font-family: Consolas, monospace;
+  font-weight: 700;
+}
+
+.volume-field input[type="range"] {
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--idle);
+  cursor: pointer;
+}
+
+.volume-field input[type="range"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.settings-level {
+  height: 3px;
+  margin-top: 8px;
+  display: block;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.settings-level span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--listen);
+  transition: width 70ms linear;
+}
+
+.settings-footer {
+  min-height: 42px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  background: #161a1e;
+}
+
+.settings-footer span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--idle);
+}
+
+.shutdown-button {
+  min-height: 30px;
+  margin-left: auto;
+  padding: 0 11px;
+  border: 1px solid #b84d58;
+  border-radius: 6px;
+  color: #ffd9dd;
+  background: #3a1d22;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shutdown-button:hover,
+.shutdown-button:focus-visible {
+  border-color: #ff7b86;
+  background: #52252c;
+  outline: 0;
+}
+
+.shutdown-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.state-buttons button {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: var(--panel);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.avatar-wrap {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+
+.avatar {
+  --state-color: var(--idle);
+  --gaze-x: 0px;
+  --gaze-y: 0px;
+  width: min(52vw, 58vh, 400px);
+  aspect-ratio: 1;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.signal-ring {
+  position: absolute;
+  width: 82%;
+  aspect-ratio: 1;
+  border: 2px solid color-mix(in srgb, var(--state-color), transparent 52%);
+  border-radius: 50%;
+  opacity: 0.7;
+  transform: scale(0.95);
+}
+
+.ring-two {
+  width: 96%;
+  opacity: 0.32;
+}
+
+.head {
+  width: 64%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.62), transparent 17%),
+    linear-gradient(145deg, #ffe994 0%, #ffd35f 48%, #f7b83f 100%);
+  border: 4px solid color-mix(in srgb, var(--state-color), #ffd35f 56%);
+  box-shadow:
+    inset -16px -18px 28px rgba(176, 102, 17, 0.18),
+    0 12px 28px rgba(0, 0, 0, 0.28),
+    0 0 46px color-mix(in srgb, var(--state-color), transparent 62%);
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  place-items: center;
+  padding: 22% 18% 31%;
+  overflow: hidden;
+  transform-origin: center;
+  transition: background 220ms ease, border-color 220ms ease;
+}
+
+.head::before,
+.head::after {
+  content: "";
+  position: absolute;
+  bottom: 27%;
+  width: 34px;
+  height: 17px;
+  border-radius: 50%;
+  background: rgba(242, 100, 83, 0.3);
+}
+
+.head::before {
+  left: 12%;
+}
+
+.head::after {
+  right: 12%;
+}
+
+.eye {
+  width: 45px;
+  height: 54px;
+  border: 2px solid rgba(70, 52, 30, 0.2);
+  border-radius: 48%;
+  background: #fffdf4;
+  box-shadow: inset 0 -5px 8px rgba(137, 94, 27, 0.12);
+  display: grid;
+  place-items: center;
+  position: relative;
+  z-index: 1;
+  transform-origin: center;
+}
+
+.eye span {
+  width: 25px;
+  height: 31px;
+  border-radius: 50%;
+  background: #30291f;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.22);
+  transform: translate(var(--gaze-x), var(--gaze-y));
+  transition: transform 180ms ease, width 180ms ease, height 180ms ease;
+  position: relative;
+}
+
+.brow {
+  position: absolute;
+  top: 20%;
+  width: 43px;
+  height: 18px;
+  border-top: 7px solid rgba(59, 45, 32, 0.78);
+  border-radius: 50%;
+  z-index: 2;
+  transition: top 180ms ease, transform 180ms ease;
+}
+
+.left-brow {
+  left: 20%;
+  transform: rotate(-5deg);
+}
+
+.right-brow {
+  right: 20%;
+  transform: rotate(5deg);
+}
+
+.eye span::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 8px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.mouth {
+  position: absolute;
+  left: 50%;
+  bottom: 20%;
+  width: 78px;
+  height: 40px;
+  border: 0;
+  border-bottom: 9px solid #3b2d20;
+  border-radius: 0 0 60px 60px;
+  background: transparent;
+  transform: translateX(-50%);
+  z-index: 2;
+  transition: width 180ms ease, height 180ms ease, bottom 180ms ease;
+}
+
+.tear {
+  position: absolute;
+  top: 50%;
+  width: 15px;
+  height: 24px;
+  border-radius: 55% 55% 65% 65%;
+  background: linear-gradient(160deg, #d9f4ff 5%, #62b8ff 72%);
+  box-shadow: 0 0 10px rgba(98, 184, 255, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.left-tear {
+  left: 31%;
+}
+
+.right-tear {
+  right: 31%;
+}
+
+.cover-hand {
+  position: absolute;
+  top: 32%;
+  width: 44px;
+  height: 48px;
+  border: 3px solid #9b542f;
+  border-radius: 18px 15px 16px 20px;
+  background: linear-gradient(145deg, #ffc184, #ed8e50);
+  box-shadow: 0 5px 10px rgba(83, 42, 24, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.cover-hand::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 27px;
+  width: 58px;
+  height: 38px;
+  border: 3px solid #9b542f;
+  border-left: 0;
+  border-radius: 0 17px 17px 0;
+  background: repeating-linear-gradient(
+    180deg,
+    #ffc184 0 7px,
+    #a85c35 7px 9px
+  );
+}
+
+.cover-hand::after {
+  content: "";
+  position: absolute;
+  top: 31px;
+  left: 24px;
+  width: 31px;
+  height: 15px;
+  border: 3px solid #9b542f;
+  border-radius: 12px;
+  background: #f5a568;
+  transform: rotate(24deg);
+  transform-origin: left center;
+}
+
+.left-cover-hand {
+  left: 7%;
+  transform: translate(-16px, 12px) rotate(14deg);
+}
+
+.right-cover-hand {
+  right: 7%;
+  transform: translate(16px, 12px) scaleX(-1) rotate(14deg);
+}
+
+.listening-ear,
+.listening-hand,
+.listening-waves {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.listening-ear {
+  top: 42%;
+  right: 15%;
+  width: 32px;
+  height: 48px;
+  border: 3px solid #a85c35;
+  border-left-width: 2px;
+  border-radius: 46% 62% 58% 44%;
+  background: linear-gradient(145deg, #ffc184, #ed8e50);
+  box-shadow: inset -5px -4px 8px rgba(128, 62, 28, 0.18);
+  z-index: 1;
+}
+
+.listening-ear::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 8px;
+  width: 11px;
+  height: 19px;
+  border: 3px solid rgba(132, 65, 35, 0.72);
+  border-left: 0;
+  border-radius: 0 70% 70% 0;
+}
+
+.listening-hand {
+  top: 40%;
+  right: 5%;
+  width: 48px;
+  height: 66px;
+  border: 3px solid #9b542f;
+  border-radius: 22px 18px 20px 24px;
+  background: linear-gradient(145deg, #ffc184, #ed8e50);
+  box-shadow: 0 7px 12px rgba(83, 42, 24, 0.3);
+  transform: rotate(-10deg) translateX(14px);
+  transform-origin: center bottom;
+  z-index: 4;
+}
+
+.listening-hand::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  bottom: -29px;
+  width: 29px;
+  height: 34px;
+  border: 3px solid #9b542f;
+  border-top: 0;
+  border-radius: 0 0 11px 11px;
+  background: #ed8e50;
+}
+
+.listening-hand::after {
+  content: "";
+  position: absolute;
+  left: -22px;
+  top: 29px;
+  width: 31px;
+  height: 17px;
+  border: 3px solid #9b542f;
+  border-radius: 12px 5px 5px 12px;
+  background: #f5a568;
+  transform: rotate(26deg);
+  transform-origin: right center;
+}
+
+.listening-hand i {
+  position: absolute;
+  top: -27px;
+  width: 11px;
+  height: 38px;
+  border: 3px solid #9b542f;
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+  background: #ffc184;
+}
+
+.listening-hand i:nth-child(1) {
+  left: 1px;
+  height: 34px;
+  top: -23px;
+}
+
+.listening-hand i:nth-child(2) {
+  left: 12px;
+  height: 42px;
+  top: -31px;
+}
+
+.listening-hand i:nth-child(3) {
+  left: 23px;
+  height: 44px;
+  top: -33px;
+}
+
+.listening-hand i:nth-child(4) {
+  left: 34px;
+  height: 37px;
+  top: -26px;
+}
+
+.listening-waves {
+  top: 38%;
+  right: 0;
+  width: 36px;
+  height: 72px;
+  z-index: 3;
+}
+
+.listening-waves i {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  border: 3px solid var(--listen);
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+.listening-waves i:first-child {
+  width: 18px;
+  height: 34px;
+}
+
+.listening-waves i:last-child {
+  width: 32px;
+  height: 58px;
+}
+
+.listening-headphones {
+  position: absolute;
+  top: 16%;
+  left: 15%;
+  width: 70%;
+  height: 45%;
+  border: 11px solid #58c7ff;
+  border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+  box-shadow: none;
+  filter:
+    drop-shadow(0 0 3px #101820)
+    drop-shadow(0 0 8px rgba(84, 190, 255, 0.58));
+  opacity: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.listening-headphones i {
+  position: absolute;
+  top: 59%;
+  width: 36px;
+  height: 72px;
+  border: 4px solid #9ee2ff;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #329fd9, #15517a);
+  box-shadow:
+    inset 0 0 0 5px rgba(15, 45, 65, 0.62),
+    0 0 0 4px #17232d,
+    0 5px 14px rgba(0, 0, 0, 0.42);
+}
+
+.listening-headphones i:first-child {
+  left: -25px;
+}
+
+.listening-headphones i:last-child {
+  right: -25px;
+}
+
+.thinking-hand {
+  position: absolute;
+  top: 64%;
+  left: 42%;
+  width: 145px;
+  height: 124px;
+  overflow: visible;
+  filter: drop-shadow(0 7px 8px rgba(83, 42, 24, 0.28));
+  opacity: 0;
+  pointer-events: none;
+  transform: rotate(-3deg);
+  transform-origin: center;
+  z-index: 5;
+}
+
+.thinking-hand-shape {
+  fill: url(#thinkingSkin);
+  stroke: #9a571e;
+  stroke-width: 0.28;
+  stroke-linejoin: round;
+}
+
+.thinking-hand-crease {
+  fill: none;
+  stroke: rgba(154, 87, 30, 0.56);
+  stroke-width: 0.22;
+  stroke-linecap: round;
+}
+
+.body-glow {
+  position: absolute;
+  bottom: 7%;
+  width: 44%;
+  height: 12%;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--state-color), transparent 62%);
+  filter: blur(18px);
+}
+
+.sleep-symbols {
+  position: absolute;
+  top: 15%;
+  right: 7%;
+  width: 80px;
+  height: 84px;
+  color: #d8e4ff;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sleep-symbols span {
+  position: absolute;
+  text-shadow: 0 0 12px rgba(140, 167, 214, 0.7);
+}
+
+.sleep-symbols span:nth-child(1) {
+  left: 6px;
+  bottom: 5px;
+  font-size: 22px;
+}
+
+.sleep-symbols span:nth-child(2) {
+  left: 28px;
+  bottom: 29px;
+  font-size: 29px;
+}
+
+.sleep-symbols span:nth-child(3) {
+  right: 2px;
+  top: 0;
+  font-size: 38px;
+}
+
+.camera-preview {
+  position: absolute;
+  right: 24px;
+  bottom: 54px;
+  width: 144px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 2px solid rgba(113, 216, 161, 0.72);
+  border-radius: 8px;
+  background: #090a0c;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38);
+}
+
+.camera-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.preview-status {
+  position: absolute;
+  left: 7px;
+  bottom: 7px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 14px);
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: rgba(8, 10, 12, 0.78);
+  color: #f4f6f8;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.preview-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--person);
+}
+
+.state-line {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--error);
+}
+
+.dot.connected {
+  background: var(--idle);
+}
+
+.controls {
+  min-height: 600px;
+  padding: 28px 22px;
+  background: rgba(27, 30, 34, 0.96);
+  border-left: 1px solid var(--line);
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 18px;
+}
+
+.controls h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.state-buttons {
+  display: grid;
+  gap: 10px;
+}
+
+.state-buttons button {
+  width: 100%;
+  padding: 0 12px;
+  text-align: left;
+}
+
+.state-buttons button.active {
+  border-color: var(--text);
+  background: color-mix(in srgb, var(--state-color), var(--panel) 78%);
+}
+
+.system-strip {
+  align-self: end;
+  display: grid;
+  gap: 12px;
+}
+
+.system-strip div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.system-strip strong {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+}
+
+.app-shell[data-state="PERSON_DETECTED"] .avatar {
+  --state-color: var(--person);
+}
+
+.app-shell[data-state="LISTENING"] .avatar {
+  --state-color: var(--listen);
+}
+
+.app-shell[data-state="THINKING"] .avatar,
+.app-shell[data-state="TRANSCRIBING"] .avatar {
+  --state-color: var(--think);
+}
+
+.app-shell[data-state="SPEAKING"] .avatar {
+  --state-color: var(--speak);
+}
+
+.app-shell[data-state="ERROR"] .avatar {
+  --state-color: var(--error);
+}
+
+.app-shell[data-state="SLEEPING"] .avatar {
+  --state-color: var(--sleep);
+}
+
+.app-shell[data-state="PERSON_DETECTED"] .mouth {
+  width: 92px;
+  height: 46px;
+}
+
+.app-shell[data-state="LISTENING"] .ring-one,
+.app-shell[data-state="SPEAKING"] .ring-one {
+  animation: pulse 1.35s ease-in-out infinite;
+}
+
+.app-shell[data-state="IDLE"] .eye {
+  animation: blink 5s ease-in-out infinite;
+}
+
+.app-shell[data-state="THINKING"] .head,
+.app-shell[data-state="TRANSCRIBING"] .head {
+  animation: think 1.8s ease-in-out infinite;
+}
+
+.app-shell[data-state="THINKING"] .avatar,
+.app-shell[data-state="TRANSCRIBING"] .avatar {
+  --gaze-x: 7px;
+  --gaze-y: -7px;
+}
+
+.app-shell[data-state="THINKING"] .left-brow,
+.app-shell[data-state="TRANSCRIBING"] .left-brow {
+  top: 16%;
+  transform: rotate(-11deg) translateY(-3px);
+}
+
+.app-shell[data-state="THINKING"] .right-brow,
+.app-shell[data-state="TRANSCRIBING"] .right-brow {
+  top: 13%;
+  transform: rotate(-19deg) translateY(-6px);
+}
+
+.app-shell[data-state="THINKING"] .mouth,
+.app-shell[data-state="TRANSCRIBING"] .mouth {
+  left: 56%;
+  bottom: 22%;
+  width: 38px;
+  height: 14px;
+  border-bottom-width: 7px;
+  transform: translateX(-50%) rotate(-8deg);
+}
+
+.app-shell[data-state="THINKING"] .thinking-hand,
+.app-shell[data-state="TRANSCRIBING"] .thinking-hand {
+  opacity: 1;
+  animation: think-hand 1.8s ease-in-out infinite;
+}
+
+.app-shell[data-state="SPEAKING"] .mouth {
+  bottom: 19%;
+  width: 62px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: #3b2d20;
+  box-shadow: inset 0 -11px 0 #e97b72;
+  transform-origin: center;
+}
+
+.app-shell[data-state="SPEAKING"] .mouth::before,
+.app-shell[data-state="SPEAKING"] .mouth::after {
+  content: none;
+}
+
+.app-shell[data-state="SPEAKING"] .mouth {
+  animation: talk 430ms ease-in-out infinite;
+}
+
+.app-shell[data-state="ERROR"] .head {
+  background:
+    radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.48), transparent 17%),
+    linear-gradient(145deg, #ffb37e, #ff735f);
+}
+
+.app-shell[data-state="ERROR"] .eye {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(45deg, transparent 42%, #4a2525 42% 58%, transparent 58%),
+    linear-gradient(-45deg, transparent 42%, #4a2525 42% 58%, transparent 58%);
+  box-shadow: none;
+}
+
+.app-shell[data-state="ERROR"] .eye span {
+  display: none;
+}
+
+.app-shell[data-state="ERROR"] .mouth {
+  bottom: 18%;
+  width: 70px;
+  height: 34px;
+  border: 0;
+  border-top: 9px solid #4a2525;
+  border-radius: 55px 55px 0 0;
+}
+
+.app-shell[data-curious="true"][data-state="IDLE"] .left-brow,
+.app-shell[data-curious="true"][data-state="PERSON_DETECTED"] .left-brow {
+  top: 16%;
+  transform: rotate(12deg) translateY(-2px);
+}
+
+.app-shell[data-curious="true"][data-state="IDLE"] .right-brow,
+.app-shell[data-curious="true"][data-state="PERSON_DETECTED"] .right-brow {
+  top: 12%;
+  transform: rotate(-16deg) translateY(-5px);
+}
+
+.app-shell[data-curious="true"][data-state="IDLE"] .eye,
+.app-shell[data-curious="true"][data-state="PERSON_DETECTED"] .eye {
+  width: 47px;
+  height: 58px;
+}
+
+.app-shell[data-curious="true"][data-state="IDLE"] .mouth,
+.app-shell[data-curious="true"][data-state="PERSON_DETECTED"] .mouth {
+  left: 56%;
+  bottom: 21%;
+  width: 30px;
+  height: 23px;
+  border: 6px solid #3b2d20;
+  border-top-width: 3px;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  transform: translateX(-50%) rotate(-8deg);
+  animation: none;
+}
+
+.app-shell[data-mood="bored"][data-state="IDLE"] .head {
+  animation: bored 2.8s ease-in-out infinite;
+}
+
+.app-shell[data-mood="bored"][data-state="IDLE"] .eye {
+  height: 34px;
+  overflow: hidden;
+  align-items: end;
+}
+
+.app-shell[data-mood="bored"][data-state="IDLE"] .brow {
+  top: 25%;
+}
+
+.app-shell[data-mood="bored"][data-state="IDLE"] .mouth {
+  bottom: 22%;
+  width: 62px;
+  height: 8px;
+  border: 0;
+  border-bottom: 7px solid #3b2d20;
+  border-radius: 50%;
+}
+
+.app-shell[data-mood="happy"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .avatar {
+  --state-color: #f6d75f;
+}
+
+.app-shell[data-mood="happy"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .head {
+  animation: happy-bounce 900ms ease-in-out infinite;
+}
+
+.app-shell[data-mood="happy"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .head::before,
+.app-shell[data-mood="happy"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .head::after {
+  background: rgba(242, 100, 83, 0.48);
+}
+
+.app-shell[data-mood="happy"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .eye {
+  width: 49px;
+  height: 27px;
+  border: 0;
+  border-bottom: 8px solid #3b2d20;
+  border-radius: 0 0 55% 55%;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.app-shell[data-mood="happy"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .left-eye {
+  transform: rotate(7deg);
+}
+
+.app-shell[data-mood="happy"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .right-eye {
+  transform: rotate(-7deg);
+}
+
+.app-shell[data-mood="happy"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .eye span {
+  display: none;
+}
+
+.app-shell[data-mood="happy"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .brow {
+  top: 15%;
+}
+
+.app-shell[data-mood="happy"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .mouth {
+  left: 50%;
+  bottom: 17%;
+  width: 94px;
+  height: 56px;
+  border: 0;
+  border-radius: 12px 12px 55px 55px;
+  background: #3b2d20;
+  box-shadow: inset 0 -16px 0 #e97b72;
+  transform: translateX(-50%);
+  animation: none;
+}
+
+.app-shell[data-mood="sad"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .avatar {
+  --state-color: #62b8ff;
+  --gaze-y: 6px;
+}
+
+.app-shell[data-mood="sad"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .head {
+  background:
+    radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.55), transparent 17%),
+    linear-gradient(145deg, #ffe89a 0%, #f7c85e 58%, #eab449 100%);
+  animation: sad-tremble 1.8s ease-in-out infinite;
+}
+
+.app-shell[data-mood="sad"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .left-brow {
+  top: 17%;
+  transform: rotate(-17deg);
+}
+
+.app-shell[data-mood="sad"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .right-brow {
+  top: 17%;
+  transform: rotate(17deg);
+}
+
+.app-shell[data-mood="sad"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .eye {
+  width: 44px;
+  height: 52px;
+  animation: none;
+}
+
+.app-shell[data-mood="sad"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .eye span {
+  width: 22px;
+  height: 27px;
+}
+
+.app-shell[data-mood="sad"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .mouth {
+  left: 50%;
+  bottom: 15%;
+  width: 70px;
+  height: 35px;
+  border: 0;
+  border-top: 9px solid #3b2d20;
+  border-radius: 55px 55px 0 0;
+  background: transparent;
+  box-shadow: none;
+  transform: translateX(-50%);
+  animation: none;
+}
+
+.app-shell[data-mood="sad"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .tear {
+  opacity: 0.95;
+  animation: tear-fall 1.15s ease-in infinite;
+}
+
+.app-shell[data-mood="sad"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .right-tear {
+  animation-delay: 380ms;
+}
+
+.app-shell[data-mood="surprised"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .avatar {
+  --state-color: #ffad68;
+}
+
+.app-shell[data-mood="surprised"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .eye {
+  width: 52px;
+  height: 63px;
+  animation: none;
+}
+
+.app-shell[data-mood="surprised"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .eye span {
+  width: 22px;
+  height: 29px;
+}
+
+.app-shell[data-mood="surprised"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .brow {
+  top: 13%;
+}
+
+.app-shell[data-mood="surprised"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .mouth {
+  left: 50%;
+  bottom: 15%;
+  width: 46px;
+  height: 54px;
+  border: 0;
+  border-radius: 50%;
+  background: #3b2d20;
+  box-shadow: inset 0 -9px 0 #e97b72;
+  transform: translateX(-50%);
+  animation: none;
+}
+
+.app-shell[data-mood="eyes-covered"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .avatar {
+  --state-color: #f2a55f;
+}
+
+.app-shell[data-mood="eyes-covered"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .left-cover-hand {
+  opacity: 1;
+  transform: translate(0, 0) rotate(6deg);
+  animation: cover-left-eye 260ms ease-out both;
+}
+
+.app-shell[data-mood="eyes-covered"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .right-cover-hand {
+  opacity: 1;
+  transform: translate(0, 0) scaleX(-1) rotate(6deg);
+  animation: cover-right-eye 260ms ease-out both;
+}
+
+.app-shell[data-mood="eyes-covered"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .mouth {
+  left: 50%;
+  bottom: 15%;
+  width: 50px;
+  height: 43px;
+  border: 0;
+  border-radius: 50%;
+  background: #3b2d20;
+  box-shadow: inset 0 -10px 0 #e97b72;
+  transform: translateX(-50%);
+  animation: none;
+}
+
+.app-shell[data-mood="zipped"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .avatar {
+  --state-color: #86c8e8;
+}
+
+.app-shell[data-mood="zipped"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .eye {
+  width: 48px;
+  height: 56px;
+  animation: none;
+}
+
+.app-shell[data-mood="zipped"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .left-brow {
+  top: 17%;
+  transform: rotate(8deg);
+}
+
+.app-shell[data-mood="zipped"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .right-brow {
+  top: 17%;
+  transform: rotate(-8deg);
+}
+
+.app-shell[data-mood="zipped"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .mouth {
+  left: 50%;
+  bottom: 20%;
+  width: 104px;
+  height: 24px;
+  border: 0;
+  border-radius: 3px;
+  background:
+    linear-gradient(#171b1f, #171b1f) center / 100% 7px no-repeat,
+    repeating-linear-gradient(90deg, #35424d 0 7px, transparent 7px 12px) center / 100% 20px no-repeat;
+  filter: drop-shadow(0 2px 1px rgba(59, 45, 32, 0.28));
+  transform: translateX(-50%);
+  animation: none;
+}
+
+.app-shell[data-mood="zipped"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .mouth::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  width: 15px;
+  height: 20px;
+  border: 2px solid #29333b;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #f4f7f9, #aebbc5);
+  box-shadow: 0 2px 0 rgba(29, 34, 39, 0.4);
+}
+
+.app-shell[data-mood="zipped"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .mouth::after {
+  content: "";
+  position: absolute;
+  top: 17px;
+  right: -5px;
+  width: 11px;
+  height: 18px;
+  border: 4px solid #35424d;
+  border-radius: 7px;
+  transform: rotate(-24deg);
+  transform-origin: top center;
+}
+
+.app-shell[data-mood="playful"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .avatar {
+  --state-color: #7cc9ff;
+}
+
+.app-shell[data-mood="playful"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .left-eye span {
+  transform: translate(9px, 3px);
+}
+
+.app-shell[data-mood="playful"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .right-eye span {
+  transform: translate(-9px, 3px);
+}
+
+.app-shell[data-mood="playful"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .left-brow {
+  top: 15%;
+  transform: rotate(12deg);
+}
+
+.app-shell[data-mood="playful"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .right-brow {
+  top: 15%;
+  transform: rotate(-12deg);
+}
+
+.app-shell[data-mood="playful"]:not([data-state="ERROR"]):not([data-state="SLEEPING"]) .mouth {
+  left: 54%;
+  bottom: 20%;
+  width: 62px;
+  height: 31px;
+  border-bottom-width: 8px;
+  transform: translateX(-50%) rotate(-7deg);
+  animation: none;
+}
+
+.app-shell[data-state="LISTENING"] .avatar {
+  --gaze-x: 5px;
+  --gaze-y: 1px;
+}
+
+.app-shell[data-state="LISTENING"] .head {
+  animation: listen-lean 1.8s ease-in-out infinite;
+}
+
+.app-shell[data-state="LISTENING"] .eye {
+  width: 48px;
+  height: 39px;
+  overflow: hidden;
+  align-items: end;
+  transform: none;
+}
+
+.app-shell[data-state="LISTENING"] .eye span {
+  width: 24px;
+  height: 29px;
+}
+
+.app-shell[data-state="LISTENING"] .left-brow {
+  top: 17%;
+  transform: rotate(13deg);
+}
+
+.app-shell[data-state="LISTENING"] .right-brow {
+  top: 17%;
+  transform: rotate(-13deg);
+}
+
+.app-shell[data-state="LISTENING"] .mouth {
+  left: 49%;
+  bottom: 21%;
+  width: 42px;
+  height: 11px;
+  border: 0;
+  border-top: 7px solid #3b2d20;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  transform: translateX(-50%) rotate(-5deg);
+  animation: none;
+}
+
+.app-shell[data-state="LISTENING"] .listening-ear,
+.app-shell[data-state="LISTENING"] .listening-hand,
+.app-shell[data-state="LISTENING"] .listening-waves {
+  opacity: 1;
+}
+
+.app-shell[data-state="LISTENING"] .listening-hand {
+  animation: listen-cup 1.8s ease-in-out infinite;
+}
+
+.app-shell[data-state="LISTENING"] .listening-waves i {
+  animation: listen-wave 1.35s ease-out infinite;
+}
+
+.app-shell[data-state="LISTENING"] .listening-waves i:last-child {
+  animation-delay: 260ms;
+}
+
+.app-shell[data-state="LISTENING"] .listening-headphones {
+  opacity: 1;
+  animation: headphone-focus 1.8s ease-in-out infinite;
+}
+
+.app-shell[data-state="SLEEPING"] .head {
+  animation: sleeping 3.2s ease-in-out infinite;
+}
+
+.app-shell[data-state="SLEEPING"] .eye {
+  width: 49px;
+  height: 23px;
+  border: 0;
+  border-bottom: 7px solid #3b2d20;
+  border-radius: 0 0 50% 50%;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell[data-state="SLEEPING"] .eye span,
+.app-shell[data-state="SLEEPING"] .brow {
+  display: none;
+}
+
+.app-shell[data-state="SLEEPING"] .mouth {
+  bottom: 20%;
+  width: 25px;
+  height: 20px;
+  border: 5px solid #3b2d20;
+  border-top-width: 2px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.app-shell[data-state="SLEEPING"] .sleep-symbols {
+  opacity: 1;
+}
+
+.app-shell[data-state="SLEEPING"] .sleep-symbols span {
+  animation: float-z 1.9s ease-in-out infinite;
+}
+
+.app-shell[data-state="SLEEPING"] .sleep-symbols span:nth-child(2) {
+  animation-delay: 180ms;
+}
+
+.app-shell[data-state="SLEEPING"] .sleep-symbols span:nth-child(3) {
+  animation-delay: 360ms;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 0.92;
+  }
+}
+
+@keyframes listen-lean {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0);
+  }
+  50% {
+    transform: translateX(4px) rotate(1.5deg);
+  }
+}
+
+@keyframes listen-cup {
+  0%,
+  100% {
+    transform: rotate(-10deg) translateX(0);
+  }
+  50% {
+    transform: rotate(-7deg) translate(-3px, -2px);
+  }
+}
+
+@keyframes listen-wave {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.72);
+  }
+  45% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) scale(1.08);
+  }
+}
+
+@keyframes headphone-focus {
+  0%,
+  100% {
+    filter:
+      drop-shadow(0 0 3px #101820)
+      drop-shadow(0 0 8px rgba(84, 190, 255, 0.5))
+      brightness(0.96);
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 3px #101820)
+      drop-shadow(0 0 11px rgba(84, 190, 255, 0.68))
+      brightness(1.1);
+  }
+}
+
+@keyframes think {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes think-hand {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-1deg);
+  }
+}
+
+@keyframes blink {
+  0%,
+  44%,
+  50%,
+  100% {
+    transform: scaleY(1);
+  }
+  47% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes talk {
+  0%,
+  18%,
+  100% {
+    width: 54px;
+    height: 8px;
+    box-shadow: none;
+    transform: translateX(-50%);
+  }
+  42% {
+    width: 58px;
+    height: 43px;
+    box-shadow: inset 0 -11px 0 #e97b72;
+    transform: translateX(-50%);
+  }
+  68% {
+    width: 66px;
+    height: 29px;
+    box-shadow: inset 0 -8px 0 #e97b72;
+    transform: translateX(-50%);
+  }
+  84% {
+    width: 48px;
+    height: 12px;
+    box-shadow: none;
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes bored {
+  0%,
+  100% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    transform: rotate(1.5deg) translateY(3px);
+  }
+}
+
+@keyframes happy-bounce {
+  0%,
+  100% {
+    transform: translateY(1px) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(1deg);
+  }
+}
+
+@keyframes sad-tremble {
+  0%,
+  100% {
+    transform: translateX(-1px) translateY(2px);
+  }
+  50% {
+    transform: translateX(1px) translateY(4px);
+  }
+}
+
+@keyframes tear-fall {
+  0% {
+    transform: translateY(-5px) scale(0.72);
+    opacity: 0;
+  }
+  24% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateY(52px) scale(1.05);
+    opacity: 0;
+  }
+}
+
+@keyframes cover-left-eye {
+  from {
+    transform: translate(-16px, 12px) rotate(14deg);
+    opacity: 0;
+  }
+  to {
+    transform: translate(0, 0) rotate(6deg);
+    opacity: 1;
+  }
+}
+
+@keyframes cover-right-eye {
+  from {
+    transform: translate(16px, 12px) scaleX(-1) rotate(14deg);
+    opacity: 0;
+  }
+  to {
+    transform: translate(0, 0) scaleX(-1) rotate(6deg);
+    opacity: 1;
+  }
+}
+
+@keyframes sleeping {
+  0%,
+  100% {
+    transform: scale(0.985) translateY(3px);
+  }
+  50% {
+    transform: scale(1.01) translateY(-2px);
+  }
+}
+
+@keyframes float-z {
+  0%,
+  100% {
+    transform: translateY(4px);
+    opacity: 0.48;
+  }
+  50% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .app-shell[data-state="SPEAKING"] .mouth {
+    animation-duration: 680ms !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .app-shell[data-state="THINKING"] .head,
+  .app-shell[data-state="TRANSCRIBING"] .head {
+    animation-duration: 2.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .app-shell[data-state="THINKING"] .thinking-hand,
+  .app-shell[data-state="TRANSCRIBING"] .thinking-hand {
+    animation-duration: 2.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+.app-shell[data-state="SPEAKING"][data-lip-sync="true"] .mouth {
+  width: var(--speech-mouth-width, 52px);
+  height: var(--speech-mouth-height, 8px);
+  animation: none !important;
+  box-shadow: none;
+  transition: width 55ms linear, height 55ms linear;
+}
+
+.app-shell[data-state="SPEAKING"][data-lip-sync="true"] .mouth::after {
+  content: "";
+  position: absolute;
+  right: 18%;
+  bottom: 2px;
+  left: 18%;
+  height: 28%;
+  border-radius: 50%;
+  background: #e97b72;
+  opacity: var(--speech-mouth-open, 0);
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .stage,
+  .controls {
+    min-height: auto;
+  }
+
+  .controls {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .state-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Main screen: operational information stays in the modal, not beside the avatar. */
+.app-shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.controls {
+  display: none;
+}
+
+.app-shell[data-session="true"] {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 34vw);
+}
+
+.status-bar {
+  align-items: flex-start;
+}
+
+#assistantPrompt {
+  max-width: 640px;
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.local-summary {
+  margin-left: auto;
+  padding: 4px 56px 0 0;
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+.local-summary time {
+  color: var(--text);
+  font-family: Consolas, monospace;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.camera-preview {
+  display: none !important;
+}
+
+.conversation-panel {
+  display: none;
+  min-height: 600px;
+  border-left: 1px solid var(--line);
+  background: #171a1e;
+}
+
+.app-shell[data-session="true"] .conversation-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.conversation-panel header {
+  padding: 27px 24px 17px;
+  border-bottom: 1px solid var(--line);
+}
+
+.conversation-panel header p {
+  margin: 0 0 4px;
+  color: var(--idle);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.conversation-panel h2 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.conversation-turns {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 20px;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.conversation-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.turn {
+  display: grid;
+  gap: 5px;
+}
+
+.turn-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.turn p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.turn-assistant p {
+  color: #dff7ea;
+}
+
+@media (max-width: 760px) {
+  .app-shell[data-session="true"] {
+    grid-template-columns: 1fr;
+  }
+
+  .conversation-panel {
+    min-height: 260px;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .local-summary {
+    padding-right: 54px;
+  }
+}

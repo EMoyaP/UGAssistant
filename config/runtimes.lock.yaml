@@ -1,0 +1,48 @@
+schema_version: 1
+runtimes:
+  - logical_name: piper_windows_amd64
+    engine: piper
+    version_or_tag: "2023.11.14-2"
+    archive_name: "piper_windows_amd64.zip"
+    sha256: "f3c58906402b24f3a96d92145f58acba6d86c9b5db896d207f78dc80811efcea"
+    official_url: "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip"
+    size_bytes: 22477236
+    executable_in_archive: "piper/piper.exe"
+    system: "Windows"
+    machines: ["amd64", "x86_64"]
+  - logical_name: piper_linux_arm64
+    engine: piper
+    version_or_tag: "2023.11.14-2"
+    archive_name: "piper_linux_aarch64.tar.gz"
+    sha256: "fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb"
+    official_url: "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_aarch64.tar.gz"
+    size_bytes: 26004717
+    executable_in_archive: "piper/piper"
+    system: "Linux"
+    machines: ["aarch64", "arm64"]
+  - logical_name: whisper_cpp_windows_amd64
+    engine: whisper.cpp
+    version_or_tag: "v1.8.1"
+    archive_name: "whisper-bin-x64.zip"
+    sha256: "cc5d6126e025ef463524ed74c94d4b6a40bb67c2d1c3cb5aca02c773c388bdad"
+    official_url: "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.1/whisper-bin-x64.zip"
+    size_bytes: 3831744
+    install_kind: "prebuilt"
+    package_root_in_archive: "Release"
+    executable_in_archive: "Release/whisper-cli.exe"
+    installed_executable: "whisper-cli.exe"
+    system: "Windows"
+    machines: ["amd64", "x86_64"]
+  - logical_name: whisper_cpp_linux_arm64
+    engine: whisper.cpp
+    version_or_tag: "v1.8.1@a91dd3be72f70dd1b3cb6e252f35fa17b93f596c"
+    archive_name: "whisper.cpp-a91dd3be72f70dd1b3cb6e252f35fa17b93f596c.tar.gz"
+    sha256: "b4c74ddb1427d8b04cc4169c2e9d0d2d65a8bf9b489c43e6357f2aaad3b916b6"
+    official_url: "https://codeload.github.com/ggml-org/whisper.cpp/tar.gz/a91dd3be72f70dd1b3cb6e252f35fa17b93f596c"
+    size_bytes: 7578864
+    install_kind: "cmake_source"
+    source_root_in_archive: "whisper.cpp-a91dd3be72f70dd1b3cb6e252f35fa17b93f596c"
+    built_executable: "build/bin/whisper-cli"
+    installed_executable: "whisper-cli"
+    system: "Linux"
+    machines: ["aarch64", "arm64"]

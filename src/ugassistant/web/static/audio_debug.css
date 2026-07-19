@@ -1,0 +1,543 @@
+:root {
+  --bg: #0a0c0e;
+  --panel: #15191d;
+  --panel-strong: #1c2228;
+  --line: #303943;
+  --text: #f3f6f8;
+  --muted: #9daab5;
+  --active: #57c7ff;
+  --sound: #70dda3;
+  --threshold: #f0c85a;
+  --error: #ff6872;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+select,
+textarea {
+  font: inherit;
+}
+
+.audio-shell {
+  height: 100vh;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: 72px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.audio-header {
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+  background: #101417;
+}
+
+.product-link {
+  color: var(--sound);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 3px 0 0;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.connection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.connection-dot,
+.live-dot,
+.privacy-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--error);
+}
+
+.connection[data-connected="true"] .connection-dot,
+.privacy-dot {
+  background: var(--sound);
+}
+
+.audio-content {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.monitor-zone {
+  min-width: 0;
+  padding: 18px 20px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  background: #080a0c;
+}
+
+.device-controls {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) 132px;
+  gap: 10px;
+  align-items: end;
+}
+
+.device-controls label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.device-controls label span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.device-controls select,
+.device-controls button {
+  width: 100%;
+  height: 38px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.device-controls select {
+  padding: 0 30px 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.device-controls button {
+  cursor: pointer;
+}
+
+.device-controls button[aria-pressed="true"] {
+  border-color: var(--active);
+  background: #132a35;
+}
+
+.device-controls button:disabled,
+.device-controls select:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.level-stage {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(105px, 1fr) 12px 58px 22px;
+  gap: 8px;
+  align-items: center;
+}
+
+.level-readout {
+  width: min(27vh, 180px);
+  aspect-ratio: 1;
+  margin: auto;
+  border: 3px solid var(--line);
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  box-shadow: 0 0 0 16px #10161a, 0 0 0 18px #24303a;
+  transition: border-color 100ms linear, box-shadow 100ms linear;
+}
+
+.level-stage[data-monitoring="true"] .level-readout {
+  border-color: var(--active);
+}
+
+.level-stage[data-sound="true"] .level-readout {
+  border-color: var(--sound);
+  box-shadow: 0 0 0 16px #102019, 0 0 0 18px #2e6045;
+}
+
+.level-readout strong {
+  font-size: clamp(34px, 6vh, 62px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.level-readout span {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.level-track {
+  height: 12px;
+  position: relative;
+  overflow: visible;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+}
+
+.level-track > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--active);
+  transition: width 60ms linear;
+}
+
+.level-stage[data-sound="true"] .level-track > span {
+  background: var(--sound);
+}
+
+.level-track i {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  left: 30%;
+  width: 2px;
+  background: var(--threshold);
+}
+
+.level-history {
+  height: 58px;
+  display: grid;
+  grid-template-columns: repeat(40, minmax(2px, 1fr));
+  gap: 3px;
+  align-items: end;
+  border-bottom: 1px solid var(--line);
+}
+
+.level-history span {
+  min-height: 2px;
+  height: 2px;
+  background: #3b9cc8;
+  transition: height 70ms linear, background 70ms linear;
+}
+
+.level-history span.active {
+  background: var(--sound);
+}
+
+.detection-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.speech-test {
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.speech-test-heading {
+  margin-bottom: 8px;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(180px, 260px);
+  align-items: end;
+  gap: 14px;
+}
+
+.speech-test-heading h2 {
+  margin: 0 0 3px;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.speech-test-heading > div > span,
+.speech-test-heading label > span,
+.speech-compose label > span {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.speech-test-heading > div > span {
+  display: inline-block;
+  margin-right: 10px;
+}
+
+.speech-test-heading label,
+.speech-compose label {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.speech-test select,
+.speech-test textarea,
+.speech-test button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.speech-test select {
+  width: 100%;
+  height: 34px;
+  min-width: 0;
+  padding: 0 28px 0 9px;
+}
+
+.speech-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px 146px;
+  align-items: end;
+  gap: 10px;
+}
+
+.speech-test textarea {
+  width: 100%;
+  height: 54px;
+  min-height: 54px;
+  padding: 8px 9px;
+  resize: none;
+  line-height: 1.3;
+}
+
+.speech-test button {
+  height: 54px;
+  cursor: pointer;
+}
+
+.speech-test button span {
+  margin-right: 6px;
+  color: var(--sound);
+}
+
+.speech-test button:disabled,
+.speech-test select:disabled,
+.speech-test textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.speech-test button:not(:disabled):hover,
+.speech-test button:not(:disabled):focus-visible {
+  border-color: var(--sound);
+  outline: 0;
+}
+
+#recognizeButton[data-active="true"] {
+  border-color: var(--error);
+  background: #2b171a;
+}
+
+#speechMessage {
+  min-height: 15px;
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#speechMessage[data-error="true"] {
+  color: var(--error);
+}
+
+.level-stage[data-monitoring="true"] .live-dot {
+  background: var(--active);
+}
+
+.level-stage[data-sound="true"] .live-dot {
+  background: var(--sound);
+}
+
+.telemetry {
+  min-height: 0;
+  min-width: 0;
+  padding: 22px 20px 16px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.telemetry-heading {
+  padding-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.telemetry-heading strong {
+  color: var(--sound);
+  text-align: right;
+}
+
+.telemetry dl {
+  margin: 0;
+  overflow-y: auto;
+}
+
+.telemetry dl div {
+  min-height: 47px;
+  padding: 9px 0;
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #293139;
+}
+
+.telemetry dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.telemetry dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.telemetry footer {
+  padding-top: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-height: 700px) and (min-width: 761px) {
+  .audio-shell {
+    grid-template-rows: 60px minmax(0, 1fr);
+  }
+
+  .audio-header {
+    padding: 9px 20px;
+  }
+
+  .monitor-zone {
+    padding: 12px 18px;
+    gap: 8px;
+  }
+
+  .level-stage {
+    grid-template-rows: minmax(90px, 1fr) 10px 42px 18px;
+    gap: 6px;
+  }
+
+  .level-readout {
+    width: min(24vh, 148px);
+  }
+
+  .level-history {
+    height: 42px;
+  }
+
+  .speech-test {
+    padding-top: 8px;
+  }
+
+  .speech-test-heading {
+    margin-bottom: 5px;
+  }
+
+  .speech-test select {
+    height: 30px;
+  }
+
+  .speech-test textarea,
+  .speech-test button {
+    height: 44px;
+    min-height: 44px;
+  }
+
+  #speechMessage {
+    min-height: 12px;
+    margin-top: 3px;
+  }
+
+  .telemetry {
+    padding: 12px 16px 8px;
+  }
+
+  .telemetry-heading {
+    padding-bottom: 8px;
+  }
+
+  .telemetry dl {
+    overflow-y: hidden;
+  }
+
+  .telemetry dl div {
+    min-height: 27px;
+    padding: 3px 0;
+  }
+
+  .telemetry footer {
+    padding-top: 7px;
+  }
+}
+
+@media (max-width: 760px) {
+  .audio-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .audio-content {
+    grid-template-columns: 1fr;
+  }
+
+  .device-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .level-stage {
+    min-height: 360px;
+  }
+
+  .speech-test-heading,
+  .speech-compose {
+    grid-template-columns: 1fr;
+  }
+
+  .telemetry {
+    min-height: 520px;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
