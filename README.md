@@ -218,7 +218,11 @@ versiones. `Desconectar` borra ese token local.
 
 Con Spotify conectado y un dispositivo Spotify activo, se puede decir `hola,
 pon musica` para que pregunte que se desea escuchar, o `hola, reproduce <tema>`
-para buscarlo directamente. `hola, deten la reproduccion` y el gesto de
+para buscarlo directamente. Tambien se entiende `hola, reproduce el ultimo
+disco de Shakira`: UGAssistant consulta los albumes oficiales del artista y
+reproduce el mas reciente disponible en Spotify. La frase adicional
+`ordenado por popularidad` se ignora en ese caso porque un album se reproduce
+en el orden fijado por su autor. `hola, deten la reproduccion` y el gesto de
 cremallera pausan Spotify. El control remoto de reproduccion requiere Spotify
 Premium; el lateral muestra la portada original enlazada a Spotify, la pista y
 ofrece pausa, reanudar, anterior y siguiente cuando Spotify permite esos

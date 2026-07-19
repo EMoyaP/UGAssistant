@@ -134,6 +134,71 @@ class SpotifyWebAPIAdapterTests(unittest.IsolatedAsyncioTestCase):
                 SpotifyWebAPIAdapter.PLAYBACK_CONFIRMATION_DELAY_SECONDS
             )
 
+    async def test_plays_the_latest_full_album_for_an_artist(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            store = LocalSpotifyTokenStore(
+                Path(temporary_directory) / "spotify.tokens.json"
+            )
+            store.save(SpotifyToken("access", "refresh", time() + 3600))
+            adapter = SpotifyWebAPIAdapter(
+                store,
+                redirect_uri="http://127.0.0.1:8000/api/spotify/callback",
+            )
+            adapter.configure("spotify-client-id")
+            request = AsyncMock(
+                side_effect=[
+                    {"artists": {"items": [{"id": "shakira-id"}]}},
+                    {
+                        "items": [
+                            {
+                                "uri": "spotify:album:older",
+                                "release_date": "2023-01-01",
+                            },
+                            {
+                                "uri": "spotify:album:latest",
+                                "release_date": "2024-03-22",
+                            },
+                        ]
+                    },
+                    {},
+                    {
+                        "item": {
+                            "id": "track-id",
+                            "name": "Las Mujeres Ya No Lloran",
+                            "artists": [{"name": "Shakira"}],
+                            "album": {"name": "Las Mujeres Ya No Lloran"},
+                            "duration_ms": 200000,
+                        },
+                        "is_playing": True,
+                        "device": {"name": "UGAssistant"},
+                    },
+                ]
+            )
+            adapter._api_request = request  # type: ignore[method-assign]
+
+            status = await adapter.play_latest_album("Shakira")
+
+            self.assertTrue(status.playback is not None and status.playback.is_playing)
+            self.assertEqual(
+                request.await_args_list[:3],
+                [
+                    call(
+                        "GET",
+                        "/search?q=Shakira&type=artist&limit=1&market=ES",
+                    ),
+                    call(
+                        "GET",
+                        "/artists/shakira-id/albums?include_groups=album&limit=10&market=ES",
+                    ),
+                    call(
+                        "PUT",
+                        "/me/player/play",
+                        {"context_uri": "spotify:album:latest"},
+                        allow_empty=True,
+                    ),
+                ],
+            )
+
     async def test_waits_for_pause_before_publishing_status(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             store = LocalSpotifyTokenStore(

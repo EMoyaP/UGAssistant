@@ -31,6 +31,10 @@ class SpotifyServiceTests(unittest.IsolatedAsyncioTestCase):
         await service.play_query("Madonna", prefer_artist=True)
         self.assertEqual(adapter.played_query_preferences, [False, True])
 
+        latest_album = await service.play_latest_album("Shakira")
+        self.assertTrue(latest_album.playback is not None and latest_album.playback.is_playing)
+        self.assertEqual(adapter.played_queries[-1], "Ultimo album de Shakira")
+
         stopped = await service.stop()
         self.assertFalse(stopped.playback is not None and stopped.playback.is_playing)
         self.assertEqual(adapter.controls, ["pause"])

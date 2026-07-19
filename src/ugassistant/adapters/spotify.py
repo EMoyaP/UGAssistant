@@ -275,15 +275,17 @@ class SpotifyWebAPIAdapter:
         normalized_query = " ".join(query.split())
         if not normalized_query:
             raise ValueError("Spotify query cannot be empty")
-        if self._web_player_pending and not self._web_player_device_id:
-            raise SpotifyLocalPlayerNotActivatedError(
-                "Activate the local Spotify player before requesting music"
-            )
+        self._ensure_local_player_is_ready()
         if prefer_artist:
             artist_payload = await self._api_request(
                 "GET",
                 "/search?" + urlencode(
-                    {"q": normalized_query, "type": "artist", "limit": 1, "market": self._market}
+                    {
+                        "q": normalized_query,
+                        "type": "artist",
+                        "limit": 1,
+                        "market": self._market,
+                    }
                 ),
             )
             artists = artist_payload.get("artists", {}).get("items", [])
@@ -315,6 +317,68 @@ class SpotifyWebAPIAdapter:
             allow_empty=True,
         )
         return await self._wait_for_playback()
+
+    async def play_latest_album(self, artist_query: str) -> SpotifyStatus:
+        """Play the most recent full album returned by Spotify for an artist."""
+        normalized_artist = " ".join(artist_query.split())
+        if not normalized_artist:
+            raise ValueError("Spotify artist query cannot be empty")
+        self._ensure_local_player_is_ready()
+        artist = await self._find_artist(normalized_artist)
+        artist_id = str(artist.get("id", "")).strip()
+        if not artist_id:
+            raise SpotifyError("Spotify did not return an artist ID")
+        payload = await self._api_request(
+            "GET",
+            f"/artists/{artist_id}/albums?" + urlencode(
+                {
+                    "include_groups": "album",
+                    "limit": 10,
+                    "market": self._market,
+                }
+            ),
+        )
+        albums = payload.get("items", [])
+        latest_album = self._latest_album(albums)
+        if latest_album is None:
+            raise SpotifyError("No Spotify album found for the requested artist")
+        album_uri = str(latest_album.get("uri", "")).strip()
+        if not album_uri:
+            raise SpotifyError("Spotify did not return an album URI")
+        await self._api_request(
+            "PUT",
+            self._play_path(),
+            {"context_uri": album_uri},
+            allow_empty=True,
+        )
+        return await self._wait_for_playback()
+
+    def _ensure_local_player_is_ready(self) -> None:
+        if self._web_player_pending and not self._web_player_device_id:
+            raise SpotifyLocalPlayerNotActivatedError(
+                "Activate the local Spotify player before requesting music"
+            )
+
+    async def _find_artist(self, query: str) -> dict[str, Any]:
+        payload = await self._api_request(
+            "GET",
+            "/search?" + urlencode(
+                {"q": query, "type": "artist", "limit": 1, "market": self._market}
+            ),
+        )
+        artists = payload.get("artists", {}).get("items", [])
+        if not artists or not isinstance(artists[0], dict):
+            raise SpotifyError("No Spotify artist found for the requested music")
+        return artists[0]
+
+    @staticmethod
+    def _latest_album(albums: object) -> dict[str, Any] | None:
+        if not isinstance(albums, list):
+            return None
+        candidates = [album for album in albums if isinstance(album, dict)]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda album: str(album.get("release_date", "")))
 
     async def _wait_for_playback(self) -> SpotifyStatus:
         """Wait briefly for Spotify to expose the playback started by its API."""

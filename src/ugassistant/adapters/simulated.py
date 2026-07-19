@@ -348,6 +348,9 @@ class SimulatedSpotifyAdapter:
         )
         return await self.status()
 
+    async def play_latest_album(self, artist_query: str) -> SpotifyStatus:
+        return await self.play_query(f"Ultimo album de {artist_query}", prefer_artist=True)
+
     async def control(self, action: str) -> SpotifyStatus:
         self.controls.append(action)
         if self.playback is not None:

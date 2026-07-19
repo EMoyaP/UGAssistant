@@ -375,6 +375,12 @@ class VoiceAssistantService:
             query = requested_music.text
             language = requested_music.language
             locale = "fr_FR" if language.casefold() == "fr" else "es_ES"
+            follow_up_request = self._music_request(f"reproduce {query}")
+            if follow_up_request is not None and follow_up_request[0] in {
+                "play",
+                "play_latest_album",
+            }:
+                action, query, prefer_artist = follow_up_request
 
         await self._set_status(
             busy=True,
@@ -384,10 +390,13 @@ class VoiceAssistantService:
             language=language,
         )
         try:
-            status = await self._spotify_service.play_query(
-                query,
-                prefer_artist=prefer_artist,
-            )
+            if action == "play_latest_album":
+                status = await self._spotify_service.play_latest_album(query)
+            else:
+                status = await self._spotify_service.play_query(
+                    query,
+                    prefer_artist=prefer_artist,
+                )
             playback = status.playback
             if playback is None or not playback.title:
                 raise RuntimeError("Spotify playback did not start")
@@ -496,6 +505,22 @@ class VoiceAssistantService:
             query,
             flags=re.IGNORECASE,
         ).strip()
+        query = re.sub(
+            r"\s+(?:ordenad[oa]s?\s+por\s+popularidad|por\s+popularidad)\s*[.!?]*$",
+            "",
+            query,
+            flags=re.IGNORECASE,
+        ).strip()
+        latest_album_match = re.match(
+            r"^(?:el\s+|le\s+)?(?:ultimo|último|mas\s+reciente|más\s+reciente|nuevo|"
+            r"dernier|nouvel)\s+(?:disco|album|álbum)\s+(?:de|del|d')\s+(.+?)\s*[.!?]*$",
+            query,
+            flags=re.IGNORECASE,
+        )
+        if latest_album_match is not None:
+            artist_query = latest_album_match.group(1).strip()
+            if artist_query:
+                return ("play_latest_album", artist_query, False)
         track_cues = ("cancion", "tema", "song", "chanson")
         prefer_artist = not any(cue in normalized for cue in track_cues)
         if not prefer_artist:

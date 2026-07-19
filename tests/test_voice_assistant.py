@@ -167,6 +167,16 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
             service._music_request("Reproduce la cancion Like a Prayer"),
             ("play", "Like a Prayer", False),
         )
+        self.assertEqual(
+            service._music_request(
+                "Reproduce el ultimo disco de Shakira ordenado por popularidad"
+            ),
+            ("play_latest_album", "Shakira", False),
+        )
+        self.assertEqual(
+            service._music_request("Joue le dernier album de Shakira"),
+            ("play_latest_album", "Shakira", False),
+        )
 
     async def test_reports_waiting_for_wake_word_when_monitoring_is_enabled(self) -> None:
         audio = AudioDeviceService(SimulatedAudioAdapter())

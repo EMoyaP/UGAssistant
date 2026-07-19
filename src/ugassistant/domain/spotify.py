@@ -85,6 +85,9 @@ class SpotifyAdapter(Protocol):
     ) -> SpotifyStatus:
         ...
 
+    async def play_latest_album(self, artist_query: str) -> SpotifyStatus:
+        ...
+
     async def control(self, action: str) -> SpotifyStatus:
         ...
 

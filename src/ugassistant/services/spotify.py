@@ -56,6 +56,9 @@ class SpotifyService:
             await self._adapter.play_query(query, prefer_artist=prefer_artist)
         )
 
+    async def play_latest_album(self, artist_query: str) -> SpotifyStatus:
+        return await self._publish(await self._adapter.play_latest_album(artist_query))
+
     async def control(self, action: str) -> SpotifyStatus:
         return await self._publish(await self._adapter.control(action))
 
