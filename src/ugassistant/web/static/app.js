@@ -56,7 +56,6 @@ const IDLE_BORED_AFTER_MS = 35000;
 const IDLE_SLEEP_AFTER_MS = 47000;
 const IDLE_WAKE_AFTER_MS = 59000;
 const GESTURE_MOOD_HOLD_MS = 1800;
-const CONVERSATION_HIDE_AFTER_MS = 8000;
 
 let latestCameraStatus = null;
 let pointerActive = false;
@@ -72,7 +71,6 @@ let ttsInventorySignature = "";
 let lipSyncFrame = null;
 let assistantProfile = { spanish_wake_word: "hola", french_wake_word: "salut" };
 let renderedTurnKey = "";
-let conversationHideTimer = null;
 let spotifyStatus = { configured: false, connected: false, playback: null };
 
 function stopLipSync() {
@@ -340,36 +338,20 @@ async function disconnectSpotify() {
   }
 }
 
-function clearConversationHideTimer() {
-  if (conversationHideTimer !== null) {
-    window.clearTimeout(conversationHideTimer);
-    conversationHideTimer = null;
-  }
-}
-
 function clearConversationPanel() {
-  clearConversationHideTimer();
   shell.dataset.session = "false";
   renderedTurnKey = "";
   conversationTurns.replaceChildren();
 }
 
-function hideConversationAfterFarewell() {
-  clearConversationHideTimer();
-  conversationHideTimer = window.setTimeout(() => {
-    clearConversationPanel();
-  }, CONVERSATION_HIDE_AFTER_MS);
-}
-
 function applyAssistantStatus(payload) {
-  const sessionCompleted =
-    payload.phase === "waiting_for_wake_word"
-    && (payload.detail === "completed" || payload.detail === "ended_by_gesture");
+  const sessionFinished = payload.phase === "waiting_for_wake_word"
+    && !payload.busy
+    && ["completed", "ended_by_gesture", "interrupted", "cancelled"].includes(payload.detail);
 
-  if (sessionCompleted) {
-    hideConversationAfterFarewell();
-  } else if (payload.busy) {
-    clearConversationHideTimer();
+  if (sessionFinished) {
+    clearConversationPanel();
+    return;
   }
 
   if (!payload.question || !payload.answer) return;

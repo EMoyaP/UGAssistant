@@ -189,6 +189,43 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service.status.detail, "monitoring_wake_word")
         await audio.shutdown()
 
+    async def test_interruption_clears_the_completed_turn(self) -> None:
+        audio = AudioDeviceService(SimulatedAudioAdapter())
+        speech = SpeechService(
+            SimulatedTTSAdapter(),
+            audio,
+            default_voice_id="es_ES-davefx-medium",
+        )
+        service = VoiceAssistantService(
+            audio,
+            VoiceRecognitionService(
+                SimulatedSTTAdapter(),
+                audio,
+                speech,
+                inference_lock=asyncio.Lock(),
+            ),
+            speech,
+            ConversationService(
+                SimulatedLLMAdapter(),
+                inference_lock=asyncio.Lock(),
+            ),
+        )
+        await service._set_status(
+            busy=True,
+            phase="speaking",
+            question="Pregunta anterior",
+            answer="Respuesta anterior",
+            language="es",
+        )
+
+        await service._finish_interruption("interrupted")
+
+        self.assertEqual(service.status.phase, "waiting_for_wake_word")
+        self.assertEqual(service.status.detail, "interrupted")
+        self.assertFalse(service.status.busy)
+        self.assertEqual(service.status.question, "")
+        self.assertEqual(service.status.answer, "")
+
     def test_explains_the_actual_spotify_playback_problem(self) -> None:
         self.assertIn(
             "Configura Spotify",

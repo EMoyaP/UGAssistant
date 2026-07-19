@@ -246,6 +246,7 @@ def create_app(
         if has_silence_gesture and not silence_gesture_active:
             silence_gesture_active = True
             if speech_service.status.busy:
+                voice_assistant_service.request_end_session()
                 await speech_service.interrupt()
             if spotify_service.status.playback is not None:
                 try:

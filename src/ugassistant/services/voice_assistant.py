@@ -238,8 +238,11 @@ class VoiceAssistantService:
                 response_detail,
             )
         except asyncio.CancelledError:
-            await self._set_status(busy=False, phase="waiting_for_wake_word", detail="cancelled")
-            raise
+            await self._finish_interruption(
+                "interrupted" if self._end_requested else "cancelled"
+            )
+            if not self._end_requested:
+                raise
         except Exception as exc:
             logger.exception("voice_assistant_turn_failed")
             await self._set_status(busy=False, phase="error", detail=str(exc))
@@ -253,6 +256,18 @@ class VoiceAssistantService:
             ):
                 return language
         return None
+
+    async def _finish_interruption(self, detail: str) -> None:
+        await self._set_status(
+            busy=False,
+            phase="waiting_for_wake_word",
+            detail=detail,
+            wake_transcript="",
+            question="",
+            answer="",
+            language=None,
+            response_detail="short",
+        )
 
     def _wake_remainder(self, transcript: str, language: str) -> str:
         for wake_word in self._wake_words.get(language, frozenset()):
