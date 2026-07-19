@@ -23,6 +23,7 @@ from ugassistant.services.conversation import ConversationService
 from ugassistant.services.recognition import VoiceRecognitionService
 from ugassistant.services.speech import SpeechService
 from ugassistant.services.spotify import SpotifyService
+from ugassistant.services.timers import TimerService
 from ugassistant.services.voice_assistant import VoiceAssistantService
 
 
@@ -168,6 +169,22 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
             ("play", "Like a Prayer", False),
         )
         self.assertEqual(
+            service._timer_command("Temporizador de 10 minutos"),
+            ("create", 600),
+        )
+        self.assertEqual(
+            service._timer_command("Quiero modificar el temporizador"),
+            ("modify", None),
+        )
+        self.assertEqual(
+            service._timer_command("Cancelar temporizador"),
+            ("cancel", None),
+        )
+        self.assertEqual(
+            service._parse_timer_duration("1 hora y 30 minutos"),
+            5400,
+        )
+        self.assertEqual(
             service._music_request(
                 "Reproduce el ultimo disco de Shakira ordenado por popularidad"
             ),
@@ -277,6 +294,53 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(spotify_adapter.controls, ["pause"])
         self.assertFalse(spotify.status.playback is not None and spotify.status.playback.is_playing)
+
+    async def test_creates_a_timer_from_the_direct_voice_command(self) -> None:
+        audio = AudioDeviceService(SimulatedAudioAdapter())
+        speech_adapter = SimulatedTTSAdapter()
+        speech = SpeechService(
+            speech_adapter,
+            audio,
+            default_voice_id="es_ES-davefx-medium",
+            output_guard_seconds=0.0,
+        )
+        recognition = VoiceRecognitionService(
+            SimulatedSTTAdapter(),
+            audio,
+            speech,
+            inference_lock=asyncio.Lock(),
+        )
+        timers = TimerService()
+        service = VoiceAssistantService(
+            audio,
+            recognition,
+            speech,
+            ConversationService(
+                SimulatedLLMAdapter(),
+                inference_lock=asyncio.Lock(),
+            ),
+            timer_service=timers,
+        )
+        timers.set_callbacks(on_status=service.update_timers)
+        await audio.refresh()
+        await audio.enable_output()
+        await speech.refresh()
+
+        handled = await service._handle_timer_request(
+            "hola, temporizador de 10 minutos",
+            "temporizador de 10 minutos",
+            "es",
+        )
+
+        self.assertTrue(handled)
+        self.assertEqual([timer.label for timer in service.status.timers], [1])
+        self.assertEqual(service.status.timers[0].duration_seconds, 600)
+        self.assertIn(
+            ("Activando temporizador de 10 minutos que empieza ya.", "es_ES-davefx-medium"),
+            speech_adapter.synthesized,
+        )
+        await timers.shutdown()
+        await audio.shutdown()
 
     def test_explains_the_actual_spotify_playback_problem(self) -> None:
         self.assertIn(

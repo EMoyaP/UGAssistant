@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>UGAssistant</title>
-    <link rel="stylesheet" href="/static/styles.css?v=19">
+    <link rel="stylesheet" href="/static/styles.css?v=20">
   </head>
   <body>
     <main class="app-shell" data-state="IDLE" data-curious="false" data-mood="">
@@ -31,6 +31,7 @@
 
         <div class="avatar-wrap">
           <div class="avatar" aria-hidden="true">
+            <div id="timerStack" class="timer-stack" aria-live="polite" hidden></div>
             <div class="signal-ring ring-one"></div>
             <div class="signal-ring ring-two"></div>
             <div class="head">
@@ -297,6 +298,6 @@
       </form>
     </dialog>
 
-    <script src="/static/app.js?v=27" defer></script>
+    <script src="/static/app.js?v=28" defer></script>
   </body>
 </html>

@@ -57,6 +57,7 @@ from ugassistant.services.recognition import (
 )
 from ugassistant.services.speech import SpeechBusyError, SpeechService, SpeechStatus
 from ugassistant.services.spotify import SpotifyService
+from ugassistant.services.timers import TimerService
 from ugassistant.services.voice_assistant import (
     VoiceAssistantService,
     VoiceAssistantStatus,
@@ -560,18 +561,24 @@ def create_app(
     async def on_voice_assistant_status(status: VoiceAssistantStatus) -> None:
         await assistant_manager.broadcast(status.to_dict())
 
+    timer_service = TimerService()
     voice_assistant_service = VoiceAssistantService(
         audio_service,
         recognition_service,
         speech_service,
         conversation_service,
         spotify_service=spotify_service,
+        timer_service=timer_service,
         spanish_wake_words=settings.wake_spanish_words,
         french_wake_words=settings.wake_french_words,
         spanish_greeting=settings.wake_spanish_greeting,
         french_greeting=settings.wake_french_greeting,
         follow_up_wait_seconds=5.0,
         on_status=on_voice_assistant_status,
+    )
+    timer_service.set_callbacks(
+        on_status=voice_assistant_service.update_timers,
+        on_expired=voice_assistant_service.notify_timer_expired,
     )
     if preferences is not None:
         voice_assistant_service.configure_wake_words(
@@ -696,7 +703,9 @@ def create_app(
                 await save_preferences(await snapshot_preferences())
             except Exception:
                 logger.exception("preferences_initial_save_failed")
+        await timer_service.start()
         yield
+        await timer_service.shutdown()
         await voice_assistant_service.shutdown()
         await recognition_service.shutdown()
         await audio_service.shutdown()
@@ -719,6 +728,7 @@ def create_app(
     app.state.recognition_service = recognition_service
     app.state.conversation_service = conversation_service
     app.state.voice_assistant_service = voice_assistant_service
+    app.state.timer_service = timer_service
     app.state.spotify_service = spotify_service
     app.state.preference_store = preference_store
     app.state.shutdown_callback = None

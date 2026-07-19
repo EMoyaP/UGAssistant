@@ -37,6 +37,7 @@ const wakeSpanishInput = document.querySelector("#wakeSpanishInput");
 const wakeFrenchInput = document.querySelector("#wakeFrenchInput");
 const saveProfileButton = document.querySelector("#saveProfileButton");
 const conversationTurns = document.querySelector("#conversationTurns");
+const timerStack = document.querySelector("#timerStack");
 const spotifyPanel = document.querySelector("#spotifyPanel");
 const spotifyTrackTitle = document.querySelector("#spotifyTrackTitle");
 const spotifyTrackArtist = document.querySelector("#spotifyTrackArtist");
@@ -82,6 +83,7 @@ let spotifyWebPlayer = null;
 let spotifyWebPlayerLoading = false;
 let spotifyWebPlayerActivated = false;
 let spotifyWebPlayerDeviceId = "";
+let activeTimers = [];
 
 function stopLipSync() {
   if (lipSyncFrame !== null) {
@@ -525,7 +527,46 @@ function clearConversationPanel() {
   conversationTurns.replaceChildren();
 }
 
+function formatTimerRemaining(remainingSeconds) {
+  const seconds = Math.max(0, Math.ceil(Number(remainingSeconds) || 0));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  return [hours, minutes, remainder]
+    .map((part) => String(part).padStart(2, "0"))
+    .join(":");
+}
+
+function renderTimers(timers = activeTimers) {
+  activeTimers = Array.isArray(timers) ? timers : [];
+  const now = Date.now();
+  const visibleTimers = activeTimers
+    .map((timer) => ({
+      ...timer,
+      remaining: Math.max(0, Math.ceil((Number(timer.ends_at_epoch_ms) - now) / 1000)),
+    }))
+    .filter((timer) => timer.remaining > 0)
+    .sort((left, right) => (
+      Number(left.ends_at_epoch_ms) - Number(right.ends_at_epoch_ms)
+      || Number(left.label) - Number(right.label)
+    ));
+  timerStack.hidden = visibleTimers.length === 0;
+  shell.dataset.timers = visibleTimers.length ? "true" : "false";
+  timerStack.replaceChildren();
+  visibleTimers.forEach((timer) => {
+    const item = document.createElement("div");
+    item.className = "timer-chip";
+    const label = document.createElement("span");
+    label.textContent = `Temporizador ${timer.label}`;
+    const value = document.createElement("strong");
+    value.textContent = formatTimerRemaining(timer.remaining);
+    item.append(label, value);
+    timerStack.append(item);
+  });
+}
+
 function applyAssistantStatus(payload) {
+  renderTimers(payload.timers);
   const sessionFinished = payload.phase === "waiting_for_wake_word"
     && !payload.busy
     && ["completed", "ended_by_gesture", "interrupted", "cancelled"].includes(payload.detail);
@@ -1267,6 +1308,7 @@ loadSpotifyConfiguration().catch((error) => console.error(error));
 loadSpotifyStatus().catch((error) => console.error(error));
 updateLocalClock();
 window.setInterval(updateLocalClock, 1000);
+window.setInterval(() => renderTimers(), 1000);
 connectStateSocket();
 connectCameraSocket();
 connectAudioSocket();

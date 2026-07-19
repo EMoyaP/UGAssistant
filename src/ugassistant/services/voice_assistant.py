@@ -13,12 +13,15 @@ from ugassistant.domain.spotify import (
     SpotifyNotConfiguredError,
     SpotifyNotConnectedError,
 )
+from ugassistant.domain.timer_alarm import build_timer_alarm_wav
+from ugassistant.domain.timers import TimerSnapshot
 from ugassistant.services.audio import AudioDeviceService, AudioStatus
 from ugassistant.services.conversation import ConversationService
 from ugassistant.services.recognition import VoiceRecognitionService
 from ugassistant.services.audio import NoSpeechDetectedError
 from ugassistant.services.speech import SpeechService
 from ugassistant.services.spotify import SpotifyService
+from ugassistant.services.timers import TimerService
 
 
 logger = logging.getLogger("ugassistant.voice_assistant")
@@ -35,9 +38,13 @@ class VoiceAssistantStatus:
     answer: str = ""
     language: str | None = None
     response_detail: str = "short"
+    timers: tuple[TimerSnapshot, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        return self.__dict__.copy()
+        return {
+            **self.__dict__,
+            "timers": [timer.to_dict() for timer in self.timers],
+        }
 
 
 VoiceAssistantStatusCallback = Callable[[VoiceAssistantStatus], Awaitable[None]]
@@ -52,6 +59,7 @@ class VoiceAssistantService:
         conversation_service: ConversationService,
         *,
         spotify_service: SpotifyService | None = None,
+        timer_service: TimerService | None = None,
         spanish_wake_words: tuple[str, ...] = ("hola",),
         french_wake_words: tuple[str, ...] = ("salut",),
         spanish_greeting: str = "¿Qué desea?",
@@ -64,6 +72,7 @@ class VoiceAssistantService:
         self._speech_service = speech_service
         self._conversation_service = conversation_service
         self._spotify_service = spotify_service
+        self._timer_service = timer_service
         self._wake_words = {
             "es": self._normalized_words(spanish_wake_words),
             "fr": self._normalized_words(french_wake_words),
@@ -73,7 +82,9 @@ class VoiceAssistantService:
         self._on_status = on_status
         self._task: asyncio.Task[None] | None = None
         self._end_requested = False
-        self._status = VoiceAssistantStatus()
+        self._status = VoiceAssistantStatus(
+            timers=timer_service.timers if timer_service is not None else (),
+        )
 
     @property
     def status(self) -> VoiceAssistantStatus:
@@ -97,6 +108,37 @@ class VoiceAssistantService:
             return False
         self._end_requested = True
         return True
+
+    async def update_timers(self, timers: tuple[TimerSnapshot, ...]) -> None:
+        await self._set_status(timers=timers)
+
+    async def notify_timer_expired(self, timer: TimerSnapshot) -> None:
+        """Play a local alarm, then announce the completed timer."""
+        locale = "fr_FR" if timer.language.casefold() == "fr" else "es_ES"
+        was_monitoring = self._audio_service.status.monitoring
+        monitoring_paused = False
+        try:
+            if self._speech_service.status.busy:
+                await self._speech_service.interrupt()
+            if was_monitoring and not self._audio_service.status.recording:
+                await self._audio_service.disable_monitoring()
+                monitoring_paused = True
+            await self._audio_service.play_wav(build_timer_alarm_wav())
+            await self._speech_service.select_language(locale)
+            message = (
+                f"Temporizador de {self._format_timer_duration(timer.duration_seconds, locale)} finalizado."
+                if locale == "es_ES"
+                else f"Minuteur de {self._format_timer_duration(timer.duration_seconds, locale)} termine."
+            )
+            await self._speech_service.speak(message)
+        except Exception:
+            logger.exception("timer_expiration_notification_failed label=%s", timer.label)
+        finally:
+            if monitoring_paused and not self._audio_service.status.monitoring:
+                try:
+                    await self._audio_service.enable_monitoring()
+                except Exception:
+                    logger.exception("timer_monitor_resume_failed")
 
     def observe_audio(self, status: AudioStatus) -> None:
         if not status.monitoring:
@@ -148,6 +190,12 @@ class VoiceAssistantService:
             if not self._audio_service.status.output_enabled:
                 raise RuntimeError("Audio output is disabled")
             inline_question = self._wake_remainder(wake.text, wake_language)
+            if await self._handle_timer_request(
+                wake.text,
+                inline_question,
+                wake_language,
+            ):
+                return
             if self._music_request(inline_question) is not None:
                 await self._set_status(
                     busy=True,
@@ -183,6 +231,8 @@ class VoiceAssistantService:
                 language=wake.language,
             )
             question = await self._recognition_service.recognize_once()
+            if await self._handle_timer_request(wake.text, question.text, question.language):
+                return
             if await self._handle_music_request(wake.text, question.text, question.language):
                 return
             await self._set_status(
@@ -288,6 +338,231 @@ class VoiceAssistantService:
             if match is not None:
                 return transcript[match.end():].lstrip(" ,.:;!?-\u2026")
         return ""
+
+    async def _handle_timer_request(
+        self,
+        wake_transcript: str,
+        question: str,
+        language: str,
+    ) -> bool:
+        command = self._timer_command(question)
+        if command is None or self._timer_service is None:
+            return False
+        action, duration_seconds = command
+        locale = "fr_FR" if language.casefold() == "fr" else "es_ES"
+        if action == "create":
+            if duration_seconds is None:
+                duration_seconds = await self._ask_timer_duration(
+                    wake_transcript,
+                    language,
+                    action="create",
+                )
+            if duration_seconds is None:
+                return True
+            timer = await self._timer_service.create(
+                duration_seconds,
+                language=language,
+            )
+            description = self._format_timer_duration(duration_seconds, locale)
+            response = (
+                f"Activando temporizador de {description} que empieza ya."
+                if timer.label == 1
+                else f"Activando temporizador {timer.label} de {description} que empieza ya."
+            )
+            if locale == "fr_FR":
+                response = (
+                    f"Minuteur de {description} active, il commence maintenant."
+                    if timer.label == 1
+                    else f"Minuteur {timer.label} de {description} active, il commence maintenant."
+                )
+            await self._speech_service.select_language(locale)
+            await self._speech_service.speak(response)
+            await self._set_timer_status(
+                detail="timer_started",
+                wake_transcript=wake_transcript,
+                language=language,
+            )
+            return True
+
+        timers = self._timer_service.timers
+        if not timers:
+            response = (
+                "No hay temporizadores activos."
+                if locale == "es_ES"
+                else "Il n'y a aucun minuteur actif."
+            )
+            await self._speech_service.select_language(locale)
+            await self._speech_service.speak(response)
+            await self._set_timer_status(
+                detail="timer_not_found",
+                wake_transcript=wake_transcript,
+                language=language,
+            )
+            return True
+
+        selected_label = await self._select_timer_label(
+            action,
+            timers,
+            wake_transcript,
+            language,
+        )
+        if selected_label is None:
+            return True
+        if action == "cancel":
+            await self._timer_service.cancel(selected_label)
+            response = (
+                f"He cancelado el temporizador {selected_label}."
+                if locale == "es_ES"
+                else f"J'ai annule le minuteur {selected_label}."
+            )
+            await self._speech_service.select_language(locale)
+            await self._speech_service.speak(response)
+            await self._set_timer_status(
+                detail="timer_cancelled",
+                wake_transcript=wake_transcript,
+                language=language,
+            )
+            return True
+
+        duration_seconds = await self._ask_timer_duration(
+            wake_transcript,
+            language,
+            action="modify",
+        )
+        if duration_seconds is None:
+            return True
+        await self._timer_service.modify(selected_label, duration_seconds)
+        description = self._format_timer_duration(duration_seconds, locale)
+        response = (
+            f"He modificado el temporizador {selected_label} a {description}."
+            if locale == "es_ES"
+            else f"J'ai modifie le minuteur {selected_label} a {description}."
+        )
+        await self._speech_service.select_language(locale)
+        await self._speech_service.speak(response)
+        await self._set_timer_status(
+            detail="timer_modified",
+            wake_transcript=wake_transcript,
+            language=language,
+        )
+        return True
+
+    async def _select_timer_label(
+        self,
+        action: str,
+        timers: tuple[TimerSnapshot, ...],
+        wake_transcript: str,
+        language: str,
+    ) -> int | None:
+        if len(timers) == 1:
+            return timers[0].label
+        locale = "fr_FR" if language.casefold() == "fr" else "es_ES"
+        verb = "modificar" if action == "modify" else "cancelar"
+        prompt = (
+            f"Que temporizador quieres {verb}? Indica su numero."
+            if locale == "es_ES"
+            else "Quel minuteur voulez-vous modifier ? Indiquez son numero."
+        )
+        await self._speech_service.select_language(locale)
+        await self._speech_service.speak(prompt)
+        await self._set_status(
+            busy=True,
+            phase="listening_for_timer_selection",
+            detail="waiting_for_timer_selection",
+            wake_transcript=wake_transcript,
+            language=language,
+        )
+        try:
+            selection = await self._recognition_service.recognize_once()
+        except NoSpeechDetectedError:
+            await self._set_timer_status(
+                detail="timer_selection_timeout",
+                wake_transcript=wake_transcript,
+                language=language,
+            )
+            return None
+        label = self._timer_label(selection.text)
+        if label is not None and any(timer.label == label for timer in timers):
+            return label
+        response = (
+            "No he identificado ese temporizador."
+            if locale == "es_ES"
+            else "Je n'ai pas reconnu ce minuteur."
+        )
+        await self._speech_service.select_language(locale)
+        await self._speech_service.speak(response)
+        await self._set_timer_status(
+            detail="timer_selection_invalid",
+            wake_transcript=wake_transcript,
+            language=language,
+        )
+        return None
+
+    async def _ask_timer_duration(
+        self,
+        wake_transcript: str,
+        language: str,
+        *,
+        action: str,
+    ) -> int | None:
+        locale = "fr_FR" if language.casefold() == "fr" else "es_ES"
+        prompt = (
+            "De cuanto tiempo?" if action == "create" else "Cual es el nuevo tiempo?"
+        )
+        if locale == "fr_FR":
+            prompt = "Pour combien de temps ?" if action == "create" else "Quelle est la nouvelle duree ?"
+        await self._speech_service.select_language(locale)
+        await self._speech_service.speak(prompt)
+        await self._set_status(
+            busy=True,
+            phase="listening_for_timer_duration",
+            detail="waiting_for_timer_duration",
+            wake_transcript=wake_transcript,
+            language=language,
+        )
+        try:
+            duration = await self._recognition_service.recognize_once()
+        except NoSpeechDetectedError:
+            await self._set_timer_status(
+                detail="timer_duration_timeout",
+                wake_transcript=wake_transcript,
+                language=language,
+            )
+            return None
+        duration_seconds = self._parse_timer_duration(duration.text)
+        if duration_seconds is not None:
+            return duration_seconds
+        response = (
+            "No he entendido la duracion del temporizador."
+            if locale == "es_ES"
+            else "Je n'ai pas compris la duree du minuteur."
+        )
+        await self._speech_service.select_language(locale)
+        await self._speech_service.speak(response)
+        await self._set_timer_status(
+            detail="timer_duration_invalid",
+            wake_transcript=wake_transcript,
+            language=language,
+        )
+        return None
+
+    async def _set_timer_status(
+        self,
+        *,
+        detail: str,
+        wake_transcript: str,
+        language: str,
+    ) -> None:
+        await self._set_status(
+            busy=False,
+            phase="waiting_for_wake_word",
+            detail=detail,
+            wake_transcript=wake_transcript,
+            question="",
+            answer="",
+            language=language,
+            response_detail="short",
+        )
 
     async def _handle_music_request(
         self,
@@ -461,6 +736,110 @@ class VoiceAssistantService:
         }
         spanish, french = responses[action]
         return french if locale == "fr_FR" else spanish
+
+    @classmethod
+    def _timer_command(cls, transcript: str) -> tuple[str, int | None] | None:
+        normalized = cls._normalize(transcript)
+        if not any(word in normalized for word in ("temporizador", "minuteur", "timer")):
+            return None
+        if any(word in normalized for word in ("cancel", "anula", "anular", "annule", "arrete")):
+            return ("cancel", None)
+        if any(word in normalized for word in ("modifica", "modificar", "cambia", "ajusta", "modifier")):
+            return ("modify", None)
+        return ("create", cls._parse_timer_duration(transcript))
+
+    @classmethod
+    def _parse_timer_duration(cls, transcript: str) -> int | None:
+        normalized = cls._normalize(transcript)
+        number_words = {
+            "un": 1,
+            "una": 1,
+            "uno": 1,
+            "dos": 2,
+            "tres": 3,
+            "cuatro": 4,
+            "cinco": 5,
+            "seis": 6,
+            "siete": 7,
+            "ocho": 8,
+            "nueve": 9,
+            "diez": 10,
+            "once": 11,
+            "doce": 12,
+            "trece": 13,
+            "catorce": 14,
+            "quince": 15,
+            "seize": 16,
+            "dix": 10,
+            "onze": 11,
+            "douze": 12,
+            "treize": 13,
+            "quatorze": 14,
+            "quinze": 15,
+        }
+        amount_pattern = r"(\d+|" + "|".join(number_words) + r")"
+        matches = re.findall(
+            amount_pattern
+            + r"\s*(segundo(?:s)?|seconde(?:s)?|minuto(?:s)?|minute(?:s)?|hora(?:s)?|heure(?:s)?)\b",
+            normalized,
+        )
+        if not matches:
+            return None
+        duration_seconds = 0
+        for raw_amount, raw_unit in matches:
+            amount = int(raw_amount) if raw_amount.isdigit() else number_words[raw_amount]
+            if raw_unit.startswith(("hora", "heure")):
+                duration_seconds += amount * 3600
+            elif raw_unit.startswith(("minuto", "minute")):
+                duration_seconds += amount * 60
+            else:
+                duration_seconds += amount
+        return duration_seconds or None
+
+    @classmethod
+    def _timer_label(cls, transcript: str) -> int | None:
+        normalized = cls._normalize(transcript)
+        numeric = re.search(r"\b(\d+)\b", normalized)
+        if numeric is not None:
+            return int(numeric.group(1))
+        numbers = {
+            "uno": 1,
+            "un": 1,
+            "dos": 2,
+            "tres": 3,
+            "cuatro": 4,
+            "cinco": 5,
+            "seis": 6,
+            "siete": 7,
+            "ocho": 8,
+            "nueve": 9,
+            "diez": 10,
+            "un": 1,
+            "deux": 2,
+            "trois": 3,
+        }
+        return next((value for word, value in numbers.items() if re.search(rf"\b{word}\b", normalized)), None)
+
+    @staticmethod
+    def _format_timer_duration(duration_seconds: int, locale: str) -> str:
+        hours, remainder = divmod(duration_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        parts: list[str] = []
+        if locale == "fr_FR":
+            if hours:
+                parts.append(f"{hours} heure" + ("s" if hours != 1 else ""))
+            if minutes:
+                parts.append(f"{minutes} minute" + ("s" if minutes != 1 else ""))
+            if seconds:
+                parts.append(f"{seconds} seconde" + ("s" if seconds != 1 else ""))
+            return " et ".join(parts)
+        if hours:
+            parts.append(f"{hours} hora" + ("s" if hours != 1 else ""))
+        if minutes:
+            parts.append(f"{minutes} minuto" + ("s" if minutes != 1 else ""))
+        if seconds:
+            parts.append(f"{seconds} segundo" + ("s" if seconds != 1 else ""))
+        return " y ".join(parts)
 
     @classmethod
     def _music_request(cls, transcript: str) -> tuple[str, str, bool] | None:

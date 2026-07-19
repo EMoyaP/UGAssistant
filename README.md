@@ -56,6 +56,11 @@ El modal de configuracion concentra dispositivos, volumen, velocidad de voz,
 voces, palabras de activacion en castellano y frances, diagnosticos de camara y
 audio, y el cierre ordenado del sistema.
 
+Los temporizadores activos aparecen encima del avatar y se ordenan por el que
+termina antes. Sus etiquetas conservan el orden de creacion: por ejemplo, si
+termina el temporizador 2 y siguen activos el 1 y el 3, el siguiente sera el 4.
+Cuando no queda ninguno, la siguiente cuenta vuelve a ser el temporizador 1.
+
 Los runtimes de Piper y whisper.cpp, las voces TTS en castellano y frances y
 `ggml-base.bin` ya estan instalados para desarrollo en Windows. Ollama y
 `qwen3:1.7b` se instalan deliberadamente mediante un paso explicito.
@@ -178,6 +183,16 @@ primera frase no contiene una de esas palabras, se descarta. Cada captura se
 cierra tras dos segundos de silencio y vuelve a reposo si no hay activacion o
 pregunta. El breve bufer necesario para no cortar la activacion permanece solo
 en memoria y se borra despues de cada intento.
+
+Para usar temporizadores di `hola, temporizador`. El asistente pregunta `De
+cuanto tiempo?`; por ejemplo, `de 10 minutos`, y confirma que empieza de
+inmediato. Tambien se acepta `hola, temporizador de 10 minutos`. Al terminar,
+se reproduce una alarma local de dos segundos y se anuncia el temporizador
+finalizado. Un temporizador no bloquea preguntas, musica ni el resto del modo
+de voz. Para cambiar o cancelar uno se puede decir `hola, quiero modificar el
+temporizador` o `hola, cancelar temporizador`; si hay varios activos, el
+asistente pide el numero correspondiente. Los temporizadores son efimeros y se
+cancelan al cerrar el proceso de UGAssistant.
 
 Si la deteccion global de Whisper devuelve otro idioma, UGAssistant compara
 secuencialmente las transcripciones forzadas a castellano y frances. En frases
