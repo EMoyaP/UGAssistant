@@ -22,10 +22,14 @@ class SpotifyPlayback:
     title: str = ""
     artists: str = ""
     album: str = ""
+    album_art_url: str = ""
+    spotify_url: str = ""
     is_playing: bool = False
     progress_ms: int = 0
     duration_ms: int = 0
     device_name: str = ""
+    volume_percent: int | None = None
+    supports_volume: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return self.__dict__.copy()

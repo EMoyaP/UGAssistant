@@ -29,6 +29,10 @@ class SpotifyServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(stopped.playback is not None and stopped.playback.is_playing)
         self.assertEqual(adapter.controls, ["pause"])
 
+        adjusted = await service.control("volume_up")
+        self.assertEqual(adjusted.playback.volume_percent if adjusted.playback else None, 60)
+        self.assertEqual(adapter.controls, ["pause", "volume_up"])
+
     async def test_disconnect_removes_the_active_connection(self) -> None:
         adapter = SimulatedSpotifyAdapter()
         service = SpotifyService(adapter)

@@ -299,6 +299,8 @@ class SpotifyWebAPIAdapter:
         return status
 
     async def control(self, action: str) -> SpotifyStatus:
+        if action in {"volume_up", "volume_down"}:
+            return await self._adjust_volume(action)
         endpoints = {
             "pause": ("PUT", "/me/player/pause"),
             "resume": ("PUT", "/me/player/play"),
@@ -309,6 +311,26 @@ class SpotifyWebAPIAdapter:
             raise ValueError(f"Unsupported Spotify control: {action}")
         method, path = endpoints[action]
         await self._api_request(method, path, allow_empty=True)
+        if action == "pause":
+            return await self._wait_for_playback_state(False)
+        if action == "resume":
+            return await self._wait_for_playback_state(True)
+        return await self.status()
+
+    async def _adjust_volume(self, action: str) -> SpotifyStatus:
+        status = await self.status()
+        playback = status.playback
+        if playback is None or playback.volume_percent is None:
+            raise SpotifyError("Spotify has no active playback device with volume information")
+        if not playback.supports_volume:
+            raise SpotifyError("The active Spotify device does not support remote volume")
+        delta = 10 if action == "volume_up" else -10
+        volume_percent = min(max(playback.volume_percent + delta, 0), 100)
+        await self._api_request(
+            "PUT",
+            "/me/player/volume?" + urlencode({"volume_percent": volume_percent}),
+            allow_empty=True,
+        )
         return await self.status()
 
     async def disconnect(self) -> SpotifyStatus:
@@ -334,17 +356,53 @@ class SpotifyWebAPIAdapter:
             if isinstance(artist, dict) and artist.get("name")
         )
         album = item.get("album") if isinstance(item.get("album"), dict) else {}
+        artwork_source = album if album else item
+        images = artwork_source.get("images", []) if isinstance(artwork_source, dict) else []
+        album_art_url = next(
+            (
+                str(image.get("url", ""))
+                for image in images
+                if isinstance(image, dict) and str(image.get("url", "")).startswith("https://")
+            ),
+            "",
+        )
+        external_urls = item.get("external_urls", {})
+        spotify_url = (
+            str(external_urls.get("spotify", ""))
+            if isinstance(external_urls, dict)
+            else ""
+        )
         device = payload.get("device") if isinstance(payload.get("device"), dict) else {}
+        raw_volume = device.get("volume_percent")
+        volume_percent = (
+            min(max(int(raw_volume), 0), 100)
+            if isinstance(raw_volume, (int, float)) and not isinstance(raw_volume, bool)
+            else None
+        )
         return SpotifyPlayback(
             track_id=str(item.get("id", "")),
             title=str(item.get("name", "")),
             artists=artist_names,
             album=str(album.get("name", "")),
+            album_art_url=album_art_url,
+            spotify_url=spotify_url,
             is_playing=bool(payload.get("is_playing", False)),
             progress_ms=int(payload.get("progress_ms") or 0),
             duration_ms=int(item.get("duration_ms") or 0),
             device_name=str(device.get("name", "")),
+            volume_percent=volume_percent,
+            supports_volume=bool(device.get("supports_volume", False)),
         )
+
+    async def _wait_for_playback_state(self, is_playing: bool) -> SpotifyStatus:
+        status = await self.status()
+        for _ in range(self.PLAYBACK_CONFIRMATION_ATTEMPTS - 1):
+            actual_state = bool(status.playback and status.playback.is_playing)
+            if actual_state == is_playing:
+                return status
+            await asyncio.sleep(self.PLAYBACK_CONFIRMATION_DELAY_SECONDS)
+            status = await self.status()
+        return status
 
     async def _token_request(self, parameters: dict[str, str]) -> dict[str, Any]:
         return await asyncio.to_thread(

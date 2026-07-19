@@ -40,8 +40,11 @@ const conversationTurns = document.querySelector("#conversationTurns");
 const spotifyPanel = document.querySelector("#spotifyPanel");
 const spotifyTrackTitle = document.querySelector("#spotifyTrackTitle");
 const spotifyTrackArtist = document.querySelector("#spotifyTrackArtist");
+const spotifyCoverLink = document.querySelector("#spotifyCoverLink");
+const spotifyCover = document.querySelector("#spotifyCover");
 const spotifyPlaybackState = document.querySelector("#spotifyPlaybackState");
 const spotifyDeviceName = document.querySelector("#spotifyDeviceName");
+const spotifyVolume = document.querySelector("#spotifyVolume");
 const spotifyPreviousButton = document.querySelector("#spotifyPreviousButton");
 const spotifyToggleButton = document.querySelector("#spotifyToggleButton");
 const spotifyNextButton = document.querySelector("#spotifyNextButton");
@@ -255,8 +258,20 @@ function applySpotifyStatus(payload) {
   shell.dataset.spotifyPlaying = isPlaying ? "true" : "false";
   spotifyTrackTitle.textContent = playback?.title || "Sin reproduccion";
   spotifyTrackArtist.textContent = playback?.artists || "Di que musica quieres escuchar";
+  const hasCover = Boolean(playback?.album_art_url);
+  spotifyCoverLink.hidden = !hasCover;
+  if (hasCover) {
+    spotifyCover.src = playback.album_art_url;
+    spotifyCover.alt = `Portada de ${playback.album || playback.title}`;
+    spotifyCoverLink.href = playback.spotify_url || "https://open.spotify.com";
+  } else {
+    spotifyCover.removeAttribute("src");
+  }
   spotifyPlaybackState.textContent = isPlaying ? "Reproduciendo" : "Listo para reproducir";
   spotifyDeviceName.textContent = playback?.device_name || "Spotify conectado";
+  spotifyVolume.textContent = playback?.supports_volume && Number.isInteger(playback.volume_percent)
+    ? `Volumen de Spotify: ${playback.volume_percent}%`
+    : "";
   spotifyToggleButton.innerHTML = isPlaying ? "&#10074;&#10074;" : "&#9654;";
   spotifyToggleButton.setAttribute("aria-label", isPlaying ? "Pausar" : "Reanudar");
   spotifyToggleButton.title = isPlaying ? "Pausar" : "Reanudar";

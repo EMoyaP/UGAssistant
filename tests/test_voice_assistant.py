@@ -148,6 +148,12 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
             service._music_request("Deten la reproduccion"),
             ("stop", "", False),
         )
+        self.assertEqual(service._music_request("Pausar"), ("pause", "", False))
+        self.assertEqual(service._music_request("Reanuda Spotify"), ("resume", "", False))
+        self.assertEqual(service._music_request("Pista siguiente"), ("next", "", False))
+        self.assertEqual(service._music_request("Pista anterior"), ("previous", "", False))
+        self.assertEqual(service._music_request("Sube el volumen"), ("volume_up", "", False))
+        self.assertEqual(service._music_request("Baja el volumen"), ("volume_down", "", False))
         self.assertEqual(
             service._music_request("Reproduce Madonna"),
             ("play", "Madonna", True),

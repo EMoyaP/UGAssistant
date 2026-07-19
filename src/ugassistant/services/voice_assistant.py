@@ -144,7 +144,6 @@ class VoiceAssistantService:
                     language=wake.language,
                 )
                 return
-            await self._stop_spotify_for_wake_word()
             if not self._audio_service.status.output_enabled:
                 raise RuntimeError("Audio output is disabled")
             inline_question = self._wake_remainder(wake.text, wake_language)
@@ -163,6 +162,7 @@ class VoiceAssistantService:
                     wake_language,
                 )
                 return
+            await self._stop_spotify_for_wake_word()
             await self._set_status(
                 busy=True,
                 phase="greeting",
@@ -327,6 +327,24 @@ class VoiceAssistantService:
             )
             return True
 
+        if action in {"pause", "resume", "next", "previous", "volume_up", "volume_down"}:
+            try:
+                await self._spotify_service.control(action)
+                response = self._spotify_control_response(action, locale)
+            except SpotifyError:
+                logger.exception("spotify_control_by_voice_failed action=%s", action)
+                response = self._spotify_error_response(SpotifyError("control failed"), locale)
+            await self._speech_service.select_language(locale)
+            await self._speech_service.speak(response)
+            await self._set_status(
+                busy=False,
+                phase="waiting_for_wake_word",
+                detail=f"spotify_{action}",
+                wake_transcript=wake_transcript,
+                language=language,
+            )
+            return True
+
         if not query:
             prompt = (
                 "Qu'est-ce que vous voulez ecouter ?"
@@ -415,17 +433,43 @@ class VoiceAssistantService:
             "Le controle a distance necessite Spotify Premium."
         )
 
+    @staticmethod
+    def _spotify_control_response(action: str, locale: str) -> str:
+        responses = {
+            "pause": ("He pausado Spotify.", "J'ai mis Spotify en pause."),
+            "resume": ("He reanudado Spotify.", "J'ai repris Spotify."),
+            "next": ("He pasado a la siguiente pista.", "Je passe au titre suivant."),
+            "previous": ("He vuelto a la pista anterior.", "Je reviens au titre precedent."),
+            "volume_up": ("He subido el volumen de Spotify.", "J'ai augmente le volume de Spotify."),
+            "volume_down": ("He bajado el volumen de Spotify.", "J'ai baisse le volume de Spotify."),
+        }
+        spanish, french = responses[action]
+        return french if locale == "fr_FR" else spanish
+
     @classmethod
     def _music_request(cls, transcript: str) -> tuple[str, str, bool] | None:
         normalized = cls._normalize(transcript)
+        if "volumen" in normalized or "volume" in normalized:
+            if any(word in normalized for word in ("sube", "subir", "aumenta", "monte", "augmente")):
+                return ("volume_up", "", False)
+            if any(word in normalized for word in ("baja", "bajar", "reduce", "baisse", "diminue")):
+                return ("volume_down", "", False)
         if any(
             word in normalized
             for word in (
-                "deten", "detener", "para musica", "para la musica", "pausa",
-                "arrete", "arreter", "pause la musique",
+                "deten", "detener", "para musica", "para la musica", "para reproduccion",
+                "arrete", "arreter", "stop",
             )
         ):
             return ("stop", "", False)
+        if any(word in normalized for word in ("pausa", "pausar", "pause")):
+            return ("pause", "", False)
+        if any(word in normalized for word in ("reanuda", "reanudar", "continua", "resume", "reprends")):
+            return ("resume", "", False)
+        if any(word in normalized for word in ("siguiente", "avanza", "avanzar", "proxima", "suivante")):
+            return ("next", "", False)
+        if any(word in normalized for word in ("anterior", "atras", "retrocede", "precedente")):
+            return ("previous", "", False)
         music_words = ("musica", "spotify", "musique")
         starters = ("pon", "reproduce", "reproducir", "escucha", "joue", "mets")
         starter_pattern = r"\b(?:" + "|".join(starters) + r")\b"

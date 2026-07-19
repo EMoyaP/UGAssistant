@@ -218,8 +218,16 @@ Con Spotify conectado y un dispositivo Spotify activo, se puede decir `hola,
 pon musica` para que pregunte que se desea escuchar, o `hola, reproduce <tema>`
 para buscarlo directamente. `hola, deten la reproduccion` y el gesto de
 cremallera pausan Spotify. El control remoto de reproduccion requiere Spotify
-Premium; el lateral muestra la pista y ofrece pausa, reanudar, anterior y
-siguiente cuando Spotify permite esos controles.
+Premium; el lateral muestra la portada original enlazada a Spotify, la pista y
+ofrece pausa, reanudar, anterior y siguiente cuando Spotify permite esos
+controles. Tambien se admiten `hola, pausar`, `hola, reanudar`, `hola,
+siguiente`, `hola, anterior`, `hola, subir volumen` y `hola, bajar volumen`.
+
+La salida de altavoz configurada en UGAssistant se aplica al audio de Piper.
+Spotify reproduce desde su cliente o dispositivo Spotify Connect activo, por lo
+que el destino de su musica se elige en Spotify, Chromium o en el sistema
+operativo. En Raspberry Pi el navegador de quiosco usa la salida de audio
+predeterminada de ALSA.
 
 ## Dispositivos de audio
 

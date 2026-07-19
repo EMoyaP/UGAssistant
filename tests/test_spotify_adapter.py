@@ -50,12 +50,20 @@ class SpotifyWebAPIAdapterTests(unittest.IsolatedAsyncioTestCase):
                             "id": "track-id",
                             "name": "Like a Prayer",
                             "artists": [{"name": "Madonna"}],
-                            "album": {"name": "Like a Prayer"},
+                            "album": {
+                                "name": "Like a Prayer",
+                                "images": [{"url": "https://i.scdn.co/image/cover"}],
+                            },
+                            "external_urls": {"spotify": "https://open.spotify.com/track/track-id"},
                             "duration_ms": 320000,
                         },
                         "is_playing": True,
                         "progress_ms": 0,
-                        "device": {"name": "Spotify Desktop"},
+                        "device": {
+                            "name": "Spotify Desktop",
+                            "volume_percent": 65,
+                            "supports_volume": True,
+                        },
                     },
                 ]
             )
@@ -64,6 +72,8 @@ class SpotifyWebAPIAdapterTests(unittest.IsolatedAsyncioTestCase):
             status = await adapter.play_query("Madonna", prefer_artist=True)
 
             self.assertTrue(status.playback is not None and status.playback.is_playing)
+            self.assertEqual(status.playback.album_art_url if status.playback else "", "https://i.scdn.co/image/cover")
+            self.assertEqual(status.playback.volume_percent if status.playback else None, 65)
             self.assertEqual(
                 request.await_args_list[:2],
                 [
@@ -118,6 +128,43 @@ class SpotifyWebAPIAdapterTests(unittest.IsolatedAsyncioTestCase):
                 status = await adapter.play_query("Like a Prayer")
 
             self.assertTrue(status.playback is not None and status.playback.is_playing)
+            sleep.assert_awaited_once_with(
+                SpotifyWebAPIAdapter.PLAYBACK_CONFIRMATION_DELAY_SECONDS
+            )
+
+    async def test_waits_for_pause_before_publishing_status(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            store = LocalSpotifyTokenStore(
+                Path(temporary_directory) / "spotify.tokens.json"
+            )
+            store.save(SpotifyToken("access", "refresh", time() + 3600))
+            adapter = SpotifyWebAPIAdapter(
+                store,
+                redirect_uri="http://127.0.0.1:8000/api/spotify/callback",
+            )
+            adapter.configure("spotify-client-id")
+            track = {
+                "id": "track-id",
+                "name": "Like a Prayer",
+                "artists": [{"name": "Madonna"}],
+                "album": {"name": "Like a Prayer"},
+                "duration_ms": 320000,
+            }
+            adapter._api_request = AsyncMock(  # type: ignore[method-assign]
+                side_effect=[
+                    {},
+                    {"item": track, "is_playing": True, "device": {"name": "Spotify Desktop"}},
+                    {"item": track, "is_playing": False, "device": {"name": "Spotify Desktop"}},
+                ]
+            )
+
+            with patch(
+                "ugassistant.adapters.spotify.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as sleep:
+                status = await adapter.control("pause")
+
+            self.assertFalse(status.playback is not None and status.playback.is_playing)
             sleep.assert_awaited_once_with(
                 SpotifyWebAPIAdapter.PLAYBACK_CONFIRMATION_DELAY_SECONDS
             )

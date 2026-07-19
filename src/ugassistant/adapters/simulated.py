@@ -321,9 +321,13 @@ class SimulatedSpotifyAdapter:
             title=query,
             artists="Spotify simulado",
             album="UGAssistant",
+            album_art_url="https://i.scdn.co/image/simulated-artwork",
+            spotify_url="https://open.spotify.com/track/simulated-track",
             is_playing=True,
             duration_ms=180000,
             device_name="Simulated Spotify device",
+            volume_percent=50,
+            supports_volume=True,
         )
         return await self.status()
 
@@ -337,6 +341,20 @@ class SimulatedSpotifyAdapter:
             elif action == "resume":
                 self.playback = SpotifyPlayback(
                     **{**self.playback.__dict__, "is_playing": True}
+                )
+            elif action == "volume_up":
+                self.playback = SpotifyPlayback(
+                    **{
+                        **self.playback.__dict__,
+                        "volume_percent": min((self.playback.volume_percent or 50) + 10, 100),
+                    }
+                )
+            elif action == "volume_down":
+                self.playback = SpotifyPlayback(
+                    **{
+                        **self.playback.__dict__,
+                        "volume_percent": max((self.playback.volume_percent or 50) - 10, 0),
+                    }
                 )
         return await self.status()
 
