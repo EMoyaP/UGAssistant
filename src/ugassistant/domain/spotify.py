@@ -64,6 +64,12 @@ class SpotifyAdapter(Protocol):
     async def status(self) -> SpotifyStatus:
         ...
 
+    async def web_player_access_token(self) -> str:
+        ...
+
+    async def set_web_player_device(self, device_id: str) -> SpotifyStatus:
+        ...
+
     async def play_query(
         self,
         query: str,

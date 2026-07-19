@@ -18,6 +18,7 @@ from ugassistant.adapters.simulated import (
 )
 from ugassistant.api.app import (
     SpotifyConfigurationRequest,
+    SpotifyWebPlayerDeviceRequest,
     create_app,
 )
 from ugassistant.config import AppSettings
@@ -57,3 +58,33 @@ class SpotifyAPITests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(status["configured"])
             self.assertEqual(store.load().spotify_client_id, "spotify-client-id")  # type: ignore[union-attr]
             self.assertFalse((root / "data" / "spotify.tokens.json").exists())
+
+    async def test_exposes_a_local_web_player_token_and_device_registration(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            spotify = SimulatedSpotifyAdapter()
+            app = create_app(
+                AppSettings(project_root=root),
+                SimulatedCameraAdapter(),
+                SimulatedAudioAdapter(),
+                SimulatedTTSAdapter(),
+                SimulatedSTTAdapter(),
+                YAMLPreferenceStore(root / "data" / "preferences.yaml"),
+                SimulatedLLMAdapter(),
+                spotify,
+            )
+
+            async with app.router.lifespan_context(app):
+                spotify.configure("spotify-client-id")
+                await spotify.complete_authorization("code", "state")
+                token = route_endpoint(app, "/api/spotify/web-player/token", "GET")
+                device = route_endpoint(app, "/api/spotify/web-player/device", "POST")
+
+                token_payload = await token()
+                status = await device(
+                    SpotifyWebPlayerDeviceRequest(device_id="browser-device-id")
+                )
+
+            self.assertEqual(token_payload["access_token"], "simulated-spotify-access-token")
+            self.assertTrue(status["connected"])
+            self.assertEqual(spotify.web_player_device_id, "browser-device-id")

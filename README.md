@@ -208,7 +208,9 @@ registra exactamente esta URI de retorno:
 http://127.0.0.1:8000/api/spotify/callback
 ```
 
-Pulsa `Conectar` para abrir la autorizacion oficial de Spotify. UGAssistant usa
+Pulsa `Conectar` para abrir la autorizacion oficial de Spotify. Tras esta
+actualizacion, desconecta y conecta Spotify una vez para conceder los permisos
+del reproductor local. UGAssistant usa
 OAuth 2.0 con PKCE: no lee ni guarda cookies del navegador. El token renovable
 se conserva solo en `data/spotify.tokens.json`, cifrado con DPAPI en Windows y
 con permisos locales restrictivos en Raspberry Pi; queda fuera del control de
@@ -228,6 +230,12 @@ Spotify reproduce desde su cliente o dispositivo Spotify Connect activo, por lo
 que el destino de su musica se elige en Spotify, Chromium o en el sistema
 operativo. En Raspberry Pi el navegador de quiosco usa la salida de audio
 predeterminada de ALSA.
+
+UGAssistant crea un reproductor Spotify Connect propio dentro de Chromium con
+el Web Playback SDK oficial. Esto evita abrir una pestaña o aplicacion de
+Spotify aparte en navegadores compatibles. Requiere Spotify Premium y, por la
+politica de reproduccion automatica del navegador, puede requerir pulsar una vez
+`Activar reproductor local` en Configuracion al iniciar la sesion.
 
 ## Dispositivos de audio
 

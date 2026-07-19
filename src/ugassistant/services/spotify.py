@@ -29,6 +29,12 @@ class SpotifyService:
     async def refresh(self) -> SpotifyStatus:
         return await self._publish(await self._adapter.status())
 
+    async def web_player_access_token(self) -> str:
+        return await self._adapter.web_player_access_token()
+
+    async def set_web_player_device(self, device_id: str) -> SpotifyStatus:
+        return await self._publish(await self._adapter.set_web_player_device(device_id))
+
     async def authorization_url(self) -> str:
         return await self._adapter.authorization_url()
 

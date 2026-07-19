@@ -88,6 +88,10 @@ class SpotifyPlayRequest(BaseModel):
     query: str
 
 
+class SpotifyWebPlayerDeviceRequest(BaseModel):
+    device_id: str
+
+
 class StateConnectionManager:
     def __init__(self) -> None:
         self._connections: set[WebSocket] = set()
@@ -838,6 +842,22 @@ def create_app(
     async def spotify_play(request: SpotifyPlayRequest) -> dict[str, object]:
         try:
             return (await spotify_service.play_query(request.query)).to_dict()
+        except (SpotifyError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.get("/api/spotify/web-player/token")
+    async def spotify_web_player_token() -> dict[str, str]:
+        try:
+            return {"access_token": await spotify_service.web_player_access_token()}
+        except SpotifyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post("/api/spotify/web-player/device")
+    async def spotify_web_player_device(
+        request: SpotifyWebPlayerDeviceRequest,
+    ) -> dict[str, object]:
+        try:
+            return (await spotify_service.set_web_player_device(request.device_id)).to_dict()
         except (SpotifyError, ValueError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 

@@ -16,6 +16,12 @@ class SpotifyServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("accounts.spotify.com", await service.authorization_url())
         connected = await service.complete_authorization("code", "state")
         self.assertTrue(connected.connected)
+        self.assertEqual(
+            await service.web_player_access_token(),
+            "simulated-spotify-access-token",
+        )
+        await service.set_web_player_device("browser-device-id")
+        self.assertEqual(adapter.web_player_device_id, "browser-device-id")
 
         playing = await service.play_query("Queen")
         self.assertTrue(playing.playback is not None and playing.playback.is_playing)

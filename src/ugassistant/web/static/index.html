@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>UGAssistant</title>
-    <link rel="stylesheet" href="/static/styles.css?v=18">
+    <link rel="stylesheet" href="/static/styles.css?v=19">
   </head>
   <body>
     <main class="app-shell" data-state="IDLE" data-curious="false" data-mood="">
@@ -200,7 +200,9 @@
               <button id="spotifySaveButton" type="button" class="primary-button">Guardar</button>
               <button id="spotifyConnectButton" type="button" class="secondary-button">Conectar</button>
               <button id="spotifyDisconnectButton" type="button" class="secondary-button">Desconectar</button>
+              <button id="spotifyActivatePlayerButton" type="button" class="secondary-button">Activar reproductor local</button>
             </div>
+            <p id="spotifyLocalPlayerStatus" class="spotify-local-player-status">El reproductor local se prepara al conectar Spotify.</p>
           </section>
 
           <section class="device-setting" aria-labelledby="cameraSettingTitle">
@@ -295,6 +297,6 @@
       </form>
     </dialog>
 
-    <script src="/static/app.js?v=24" defer></script>
+    <script src="/static/app.js?v=25" defer></script>
   </body>
 </html>

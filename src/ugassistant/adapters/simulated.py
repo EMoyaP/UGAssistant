@@ -280,6 +280,7 @@ class SimulatedSpotifyAdapter:
         self.played_queries: list[str] = []
         self.played_query_preferences: list[bool] = []
         self.controls: list[str] = []
+        self.web_player_device_id = ""
 
     def configure(self, client_id: str) -> None:
         self.client_id = client_id.strip()
@@ -305,6 +306,17 @@ class SimulatedSpotifyAdapter:
             ) if self.client_id else "not_configured",
             playback=self.playback,
         )
+
+    async def web_player_access_token(self) -> str:
+        if not self.connected:
+            raise RuntimeError("Spotify is not connected")
+        return "simulated-spotify-access-token"
+
+    async def set_web_player_device(self, device_id: str) -> SpotifyStatus:
+        if not self.connected:
+            raise RuntimeError("Spotify is not connected")
+        self.web_player_device_id = device_id
+        return await self.status()
 
     async def play_query(
         self,
@@ -361,4 +373,5 @@ class SimulatedSpotifyAdapter:
     async def disconnect(self) -> SpotifyStatus:
         self.connected = False
         self.playback = None
+        self.web_player_device_id = ""
         return await self.status()

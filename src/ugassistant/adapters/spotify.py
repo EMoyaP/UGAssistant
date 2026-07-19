@@ -164,6 +164,9 @@ class SpotifyWebAPIAdapter:
     PLAYBACK_CONFIRMATION_ATTEMPTS = 6
     PLAYBACK_CONFIRMATION_DELAY_SECONDS = 0.5
     SCOPES = (
+        "streaming",
+        "user-read-email",
+        "user-read-private",
         "user-read-playback-state",
         "user-read-currently-playing",
         "user-modify-playback-state",
@@ -182,9 +185,13 @@ class SpotifyWebAPIAdapter:
         self._client_id = ""
         self._pending_state = ""
         self._pending_verifier = ""
+        self._web_player_device_id = ""
 
     def configure(self, client_id: str) -> None:
-        self._client_id = client_id.strip()
+        normalized_client_id = client_id.strip()
+        if normalized_client_id != self._client_id:
+            self._web_player_device_id = ""
+        self._client_id = normalized_client_id
 
     async def authorization_url(self) -> str:
         if not self._client_id:
@@ -242,6 +249,16 @@ class SpotifyWebAPIAdapter:
             playback=playback,
         )
 
+    async def web_player_access_token(self) -> str:
+        return await self._access_token()
+
+    async def set_web_player_device(self, device_id: str) -> SpotifyStatus:
+        normalized_device_id = device_id.strip()
+        if not normalized_device_id:
+            raise ValueError("Spotify Web Playback device ID cannot be empty")
+        self._web_player_device_id = normalized_device_id
+        return await self.status()
+
     async def play_query(
         self,
         query: str,
@@ -265,7 +282,7 @@ class SpotifyWebAPIAdapter:
                 if artist_uri:
                     await self._api_request(
                         "PUT",
-                        "/me/player/play",
+                        self._play_path(),
                         {"context_uri": artist_uri},
                         allow_empty=True,
                     )
@@ -282,7 +299,7 @@ class SpotifyWebAPIAdapter:
         track = tracks[0]
         await self._api_request(
             "PUT",
-            "/me/player/play",
+            self._play_path(),
             {"uris": [str(track["uri"])]},
             allow_empty=True,
         )
@@ -337,6 +354,7 @@ class SpotifyWebAPIAdapter:
         self._token_store.clear()
         self._pending_state = ""
         self._pending_verifier = ""
+        self._web_player_device_id = ""
         return SpotifyStatus(
             configured=bool(self._client_id),
             detail="not_connected" if self._client_id else "not_configured",
@@ -403,6 +421,13 @@ class SpotifyWebAPIAdapter:
             await asyncio.sleep(self.PLAYBACK_CONFIRMATION_DELAY_SECONDS)
             status = await self.status()
         return status
+
+    def _play_path(self) -> str:
+        if not self._web_player_device_id:
+            return "/me/player/play"
+        return "/me/player/play?" + urlencode(
+            {"device_id": self._web_player_device_id}
+        )
 
     async def _token_request(self, parameters: dict[str, str]) -> dict[str, Any]:
         return await asyncio.to_thread(

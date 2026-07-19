@@ -41,6 +41,8 @@ class SpotifyWebAPIAdapterTests(unittest.IsolatedAsyncioTestCase):
                 redirect_uri="http://127.0.0.1:8000/api/spotify/callback",
             )
             adapter.configure("spotify-client-id")
+            authorization_url = await adapter.authorization_url()
+            self.assertIn("streaming", authorization_url)
             request = AsyncMock(
                 side_effect=[
                     {"artists": {"items": [{"uri": "spotify:artist:madonna"}]}},
