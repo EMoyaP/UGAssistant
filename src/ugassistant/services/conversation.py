@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+import re
 from typing import Literal
 
 from ugassistant.domain.ports import LLMAdapter, LLMMessage
@@ -162,23 +163,24 @@ class ConversationService:
                     "Tu es UGAssistant, un assistant local. Reponds uniquement en "
                     "francais avec une reponse complete, exacte et pratique. Inclus le "
                     "contexte et les etapes necessaires pour resoudre la demande. "
-                    "Utilise des phrases claires sans markdown et evite les details "
+                    "Utilise des phrases claires sans markdown, asterisques, titres ou "
+                    "listes a puces et evite les details "
                     "inventes."
                 )
             return (
                 "Eres UGAssistant, un asistente local. Responde solo en espanol con "
                 "una respuesta completa, exacta y practica. Incluye el contexto y los "
-                "pasos necesarios para resolver la duda. Usa frases claras sin markdown "
-                "y evita inventar detalles."
+                "pasos necesarios para resolver la duda. Usa frases claras sin markdown, "
+                "asteriscos, almohadillas o listas con guiones y evita inventar detalles."
             )
         if language == "fr":
             return (
                 "Tu es UGAssistant, un assistant local. Reponds uniquement en "
-                "francais, de maniere utile et breve, en deux phrases maximum."
+                "francais, de maniere utile et breve, en deux phrases maximum, sans markdown."
             )
         return (
             "Eres UGAssistant, un asistente local. Responde solo en espanol, "
-            "de forma util y breve, en un maximo de dos frases."
+            "de forma util y breve, en un maximo de dos frases y sin markdown."
         )
 
     def _max_tokens_for(self, response_detail: ResponseDetail) -> int:
@@ -193,7 +195,7 @@ class ConversationService:
         response: str,
         response_detail: ResponseDetail,
     ) -> str:
-        compact = " ".join(response.split())
+        compact = " ".join(self._plain_text(response).split())
         max_characters = (
             self._complete_max_response_characters
             if response_detail == "complete"
@@ -203,6 +205,18 @@ class ConversationService:
             return compact
         shortened = compact[:max_characters].rsplit(" ", 1)[0]
         return shortened.rstrip(".,;: ") + "."
+
+    @staticmethod
+    def _plain_text(response: str) -> str:
+        text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", response)
+        text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+        text = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", text)
+        text = re.sub(r"(?m)^\s*[-+*]\s+", "", text)
+        text = re.sub(r"(?m)^\s*>\s?", "", text)
+        text = text.replace("```", "").replace("`", "")
+        text = text.replace("**", "").replace("__", "").replace("~~", "")
+        text = re.sub(r"(?<!\w)[*_~]+|[*_~]+(?!\w)", "", text)
+        return text.replace("#", "")
 
     async def _set_status(self, **values: object) -> None:
         self._status = ConversationStatus(**values)  # type: ignore[arg-type]

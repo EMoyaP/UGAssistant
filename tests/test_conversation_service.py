@@ -60,6 +60,24 @@ class ConversationServiceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await service.answer("Explica el proceso", "es", "extended")
 
+    async def test_removes_markdown_before_storing_or_speaking_a_response(self) -> None:
+        adapter = SimulatedLLMAdapter(
+            response=(
+                "### **Gaspacho andaluz**\n"
+                "- Tomate y aceite.\n"
+                "1. Tritura los ingredientes.\n"
+                "[Fuente](https://example.invalid)"
+            )
+        )
+        service = ConversationService(adapter, inference_lock=asyncio.Lock())
+
+        answer = await service.answer("Dame una receta", "es", "complete")
+
+        self.assertIn("Gaspacho andaluz", answer)
+        self.assertIn("Tomate y aceite.", answer)
+        self.assertIn("1. Tritura los ingredientes.", answer)
+        self.assertNotRegex(answer, r"[#*\[\]`]")
+
 
 if __name__ == "__main__":
     unittest.main()
