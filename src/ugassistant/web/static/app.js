@@ -251,11 +251,14 @@ function applySpotifyStatus(payload) {
   spotifyStatus = payload;
   const playback = payload.playback || null;
   const isPlaying = Boolean(playback?.is_playing);
-  shell.dataset.spotify = isPlaying ? "true" : "false";
+  // Keep the player available after OAuth completes, even before the first track.
+  // The avatar only switches to its music expression while playback is active.
+  shell.dataset.spotify = payload.connected ? "true" : "false";
+  shell.dataset.spotifyPlaying = isPlaying ? "true" : "false";
   spotifyTrackTitle.textContent = playback?.title || "Sin reproduccion";
-  spotifyTrackArtist.textContent = playback?.artists || "Spotify";
-  spotifyPlaybackState.textContent = isPlaying ? "Reproduciendo" : "En espera";
-  spotifyDeviceName.textContent = playback?.device_name || "";
+  spotifyTrackArtist.textContent = playback?.artists || "Di que musica quieres escuchar";
+  spotifyPlaybackState.textContent = isPlaying ? "Reproduciendo" : "Listo para reproducir";
+  spotifyDeviceName.textContent = playback?.device_name || "Spotify conectado";
   spotifyToggleButton.innerHTML = isPlaying ? "&#10074;&#10074;" : "&#9654;";
   spotifyToggleButton.setAttribute("aria-label", isPlaying ? "Pausar" : "Reanudar");
   spotifyToggleButton.title = isPlaying ? "Pausar" : "Reanudar";
