@@ -5,7 +5,7 @@ import os
 import tempfile
 import unittest
 from time import time
-from unittest.mock import AsyncMock, call
+from unittest.mock import AsyncMock, call, patch
 
 from ugassistant.adapters.spotify import (
     LocalSpotifyTokenStore,
@@ -78,4 +78,46 @@ class SpotifyWebAPIAdapterTests(unittest.IsolatedAsyncioTestCase):
                         allow_empty=True,
                     ),
                 ],
+            )
+
+    async def test_waits_until_spotify_reports_the_started_playback(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            store = LocalSpotifyTokenStore(
+                Path(temporary_directory) / "spotify.tokens.json"
+            )
+            store.save(SpotifyToken("access", "refresh", time() + 3600))
+            adapter = SpotifyWebAPIAdapter(
+                store,
+                redirect_uri="http://127.0.0.1:8000/api/spotify/callback",
+            )
+            adapter.configure("spotify-client-id")
+            adapter._api_request = AsyncMock(  # type: ignore[method-assign]
+                side_effect=[
+                    {"tracks": {"items": [{"uri": "spotify:track:like-a-prayer"}]}},
+                    {},
+                    {},
+                    {
+                        "item": {
+                            "id": "track-id",
+                            "name": "Like a Prayer",
+                            "artists": [{"name": "Madonna"}],
+                            "album": {"name": "Like a Prayer"},
+                            "duration_ms": 320000,
+                        },
+                        "is_playing": True,
+                        "progress_ms": 0,
+                        "device": {"name": "Spotify Desktop"},
+                    },
+                ]
+            )
+
+            with patch(
+                "ugassistant.adapters.spotify.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as sleep:
+                status = await adapter.play_query("Like a Prayer")
+
+            self.assertTrue(status.playback is not None and status.playback.is_playing)
+            sleep.assert_awaited_once_with(
+                SpotifyWebAPIAdapter.PLAYBACK_CONFIRMATION_DELAY_SECONDS
             )

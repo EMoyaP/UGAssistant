@@ -161,6 +161,8 @@ class SpotifyWebAPIAdapter:
     AUTHORIZE_URL = "https://accounts.spotify.com/authorize"
     TOKEN_URL = "https://accounts.spotify.com/api/token"
     API_URL = "https://api.spotify.com/v1"
+    PLAYBACK_CONFIRMATION_ATTEMPTS = 6
+    PLAYBACK_CONFIRMATION_DELAY_SECONDS = 0.5
     SCOPES = (
         "user-read-playback-state",
         "user-read-currently-playing",
@@ -267,7 +269,7 @@ class SpotifyWebAPIAdapter:
                         {"context_uri": artist_uri},
                         allow_empty=True,
                     )
-                    return await self.status()
+                    return await self._wait_for_playback()
         payload = await self._api_request(
             "GET",
             "/search?" + urlencode(
@@ -284,7 +286,17 @@ class SpotifyWebAPIAdapter:
             {"uris": [str(track["uri"])]},
             allow_empty=True,
         )
-        return await self.status()
+        return await self._wait_for_playback()
+
+    async def _wait_for_playback(self) -> SpotifyStatus:
+        """Wait briefly for Spotify to expose the playback started by its API."""
+        status = await self.status()
+        for _ in range(self.PLAYBACK_CONFIRMATION_ATTEMPTS - 1):
+            if status.playback is not None and status.playback.is_playing:
+                return status
+            await asyncio.sleep(self.PLAYBACK_CONFIRMATION_DELAY_SECONDS)
+            status = await self.status()
+        return status
 
     async def control(self, action: str) -> SpotifyStatus:
         endpoints = {

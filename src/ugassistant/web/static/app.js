@@ -72,6 +72,7 @@ let lipSyncFrame = null;
 let assistantProfile = { spanish_wake_word: "hola", french_wake_word: "salut" };
 let renderedTurnKey = "";
 let spotifyStatus = { configured: false, connected: false, playback: null };
+let spotifyPollTimer = null;
 
 function stopLipSync() {
   if (lipSyncFrame !== null) {
@@ -267,6 +268,21 @@ function applySpotifyStatus(payload) {
     : payload.configured ? "Pendiente de conexion" : "Sin configurar";
   spotifyConnectButton.disabled = !payload.configured || payload.connected;
   spotifyDisconnectButton.disabled = !payload.connected;
+  syncSpotifyPolling(isPlaying);
+}
+
+function syncSpotifyPolling(isPlaying) {
+  if (!isPlaying) {
+    if (spotifyPollTimer !== null) {
+      window.clearInterval(spotifyPollTimer);
+      spotifyPollTimer = null;
+    }
+    return;
+  }
+  if (spotifyPollTimer !== null) return;
+  spotifyPollTimer = window.setInterval(() => {
+    loadSpotifyStatus().catch((error) => console.error("spotify_status_poll_failed", error));
+  }, 2500);
 }
 
 async function loadSpotifyStatus() {

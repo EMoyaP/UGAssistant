@@ -8,6 +8,7 @@ import unittest
 from ugassistant.adapters.simulated import (
     SimulatedAudioAdapter,
     SimulatedLLMAdapter,
+    SimulatedSpotifyAdapter,
     SimulatedSTTAdapter,
     SimulatedTTSAdapter,
 )
@@ -20,6 +21,7 @@ from ugassistant.services.audio import AudioDeviceService, AudioStatus
 from ugassistant.services.conversation import ConversationService
 from ugassistant.services.recognition import VoiceRecognitionService
 from ugassistant.services.speech import SpeechService
+from ugassistant.services.spotify import SpotifyService
 from ugassistant.services.voice_assistant import VoiceAssistantService
 
 
@@ -225,6 +227,39 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(service.status.busy)
         self.assertEqual(service.status.question, "")
         self.assertEqual(service.status.answer, "")
+
+    async def test_wake_word_pauses_active_spotify_playback(self) -> None:
+        audio = AudioDeviceService(SimulatedAudioAdapter())
+        speech = SpeechService(
+            SimulatedTTSAdapter(),
+            audio,
+            default_voice_id="es_ES-davefx-medium",
+        )
+        spotify_adapter = SimulatedSpotifyAdapter()
+        spotify = SpotifyService(spotify_adapter)
+        spotify.configure("spotify-client-id")
+        await spotify.complete_authorization("code", "state")
+        await spotify.play_query("Madonna")
+        service = VoiceAssistantService(
+            audio,
+            VoiceRecognitionService(
+                SimulatedSTTAdapter(),
+                audio,
+                speech,
+                inference_lock=asyncio.Lock(),
+            ),
+            speech,
+            ConversationService(
+                SimulatedLLMAdapter(),
+                inference_lock=asyncio.Lock(),
+            ),
+            spotify_service=spotify,
+        )
+
+        await service._stop_spotify_for_wake_word()
+
+        self.assertEqual(spotify_adapter.controls, ["pause"])
+        self.assertFalse(spotify.status.playback is not None and spotify.status.playback.is_playing)
 
     def test_explains_the_actual_spotify_playback_problem(self) -> None:
         self.assertIn(

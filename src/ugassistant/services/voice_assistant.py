@@ -144,6 +144,7 @@ class VoiceAssistantService:
                     language=wake.language,
                 )
                 return
+            await self._stop_spotify_for_wake_word()
             if not self._audio_service.status.output_enabled:
                 raise RuntimeError("Audio output is disabled")
             inline_question = self._wake_remainder(wake.text, wake_language)
@@ -268,6 +269,17 @@ class VoiceAssistantService:
             language=None,
             response_detail="short",
         )
+
+    async def _stop_spotify_for_wake_word(self) -> None:
+        if self._spotify_service is None:
+            return
+        playback = self._spotify_service.status.playback
+        if playback is None or not playback.is_playing:
+            return
+        try:
+            await self._spotify_service.stop()
+        except SpotifyError:
+            logger.exception("spotify_stop_for_wake_word_failed")
 
     def _wake_remainder(self, transcript: str, language: str) -> str:
         for wake_word in self._wake_words.get(language, frozenset()):
