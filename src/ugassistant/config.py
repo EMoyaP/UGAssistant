@@ -111,6 +111,9 @@ class AppSettings:
     tts_noise_scale: float = 0.667
     tts_noise_w: float = 0.8
     preferences_relative_path: Path = Path("data/preferences.yaml")
+    spotify_token_relative_path: Path = Path("data/spotify.tokens.json")
+    spotify_redirect_uri: str = "http://127.0.0.1:8000/api/spotify/callback"
+    spotify_market: str = "ES"
 
     @property
     def camera_model_path(self) -> Path:
@@ -147,6 +150,10 @@ class AppSettings:
     @property
     def preferences_path(self) -> Path:
         return self.project_root / self.preferences_relative_path
+
+    @property
+    def spotify_token_path(self) -> Path:
+        return self.project_root / self.spotify_token_relative_path
 
     def tts_executable_path(
         self,
@@ -197,6 +204,7 @@ def load_app_settings(project_root: Path = PROJECT_ROOT) -> AppSettings:
     stt = data.get("stt", {})
     tts = data.get("tts", {})
     persistence = data.get("persistence", {})
+    spotify = data.get("spotify", {})
     resolution = performance.get("camera_max_resolution", [640, 480])
     detection_fps = performance.get("face_detection_target_fps", [5, 10])
     audio_activation_threshold = min(
@@ -445,4 +453,14 @@ def load_app_settings(project_root: Path = PROJECT_ROOT) -> AppSettings:
         preferences_relative_path=Path(
             str(persistence.get("preferences_path", "data/preferences.yaml"))
         ),
+        spotify_token_relative_path=Path(
+            str(spotify.get("token_path", "data/spotify.tokens.json"))
+        ),
+        spotify_redirect_uri=str(
+            spotify.get(
+                "redirect_uri",
+                "http://127.0.0.1:8000/api/spotify/callback",
+            )
+        ).strip(),
+        spotify_market=str(spotify.get("market", "ES")).strip().upper()[:2] or "ES",
     )

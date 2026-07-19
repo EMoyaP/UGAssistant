@@ -37,6 +37,20 @@ const wakeSpanishInput = document.querySelector("#wakeSpanishInput");
 const wakeFrenchInput = document.querySelector("#wakeFrenchInput");
 const saveProfileButton = document.querySelector("#saveProfileButton");
 const conversationTurns = document.querySelector("#conversationTurns");
+const spotifyPanel = document.querySelector("#spotifyPanel");
+const spotifyTrackTitle = document.querySelector("#spotifyTrackTitle");
+const spotifyTrackArtist = document.querySelector("#spotifyTrackArtist");
+const spotifyPlaybackState = document.querySelector("#spotifyPlaybackState");
+const spotifyDeviceName = document.querySelector("#spotifyDeviceName");
+const spotifyPreviousButton = document.querySelector("#spotifyPreviousButton");
+const spotifyToggleButton = document.querySelector("#spotifyToggleButton");
+const spotifyNextButton = document.querySelector("#spotifyNextButton");
+const spotifyStopButton = document.querySelector("#spotifyStopButton");
+const spotifyClientIdInput = document.querySelector("#spotifyClientIdInput");
+const spotifySettingStatus = document.querySelector("#spotifySettingStatus");
+const spotifySaveButton = document.querySelector("#spotifySaveButton");
+const spotifyConnectButton = document.querySelector("#spotifyConnectButton");
+const spotifyDisconnectButton = document.querySelector("#spotifyDisconnectButton");
 
 const IDLE_BORED_AFTER_MS = 35000;
 const IDLE_SLEEP_AFTER_MS = 47000;
@@ -59,6 +73,7 @@ let lipSyncFrame = null;
 let assistantProfile = { spanish_wake_word: "hola", french_wake_word: "salut" };
 let renderedTurnKey = "";
 let conversationHideTimer = null;
+let spotifyStatus = { configured: false, connected: false, playback: null };
 
 function stopLipSync() {
   if (lipSyncFrame !== null) {
@@ -229,6 +244,97 @@ async function saveAssistantProfile() {
     console.error(error);
   } finally {
     saveProfileButton.disabled = false;
+  }
+}
+
+function applySpotifyStatus(payload) {
+  spotifyStatus = payload;
+  const playback = payload.playback || null;
+  const isPlaying = Boolean(playback?.is_playing);
+  shell.dataset.spotify = isPlaying ? "true" : "false";
+  spotifyTrackTitle.textContent = playback?.title || "Sin reproduccion";
+  spotifyTrackArtist.textContent = playback?.artists || "Spotify";
+  spotifyPlaybackState.textContent = isPlaying ? "Reproduciendo" : "En espera";
+  spotifyDeviceName.textContent = playback?.device_name || "";
+  spotifyToggleButton.innerHTML = isPlaying ? "&#10074;&#10074;" : "&#9654;";
+  spotifyToggleButton.setAttribute("aria-label", isPlaying ? "Pausar" : "Reanudar");
+  spotifyToggleButton.title = isPlaying ? "Pausar" : "Reanudar";
+  const controlsEnabled = Boolean(payload.connected && playback);
+  [spotifyPreviousButton, spotifyToggleButton, spotifyNextButton, spotifyStopButton]
+    .forEach((button) => { button.disabled = !controlsEnabled; });
+  spotifySettingStatus.textContent = payload.connected
+    ? "Conectado"
+    : payload.configured ? "Pendiente de conexion" : "Sin configurar";
+  spotifyConnectButton.disabled = !payload.configured || payload.connected;
+  spotifyDisconnectButton.disabled = !payload.connected;
+}
+
+async function loadSpotifyStatus() {
+  const response = await fetch("/api/spotify");
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.detail || "Spotify status failed");
+  applySpotifyStatus(payload);
+}
+
+async function loadSpotifyConfiguration() {
+  const response = await fetch("/api/spotify/config");
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.detail || "Spotify configuration request failed");
+  spotifyClientIdInput.value = payload.client_id || "";
+}
+
+async function saveSpotifyConfiguration() {
+  spotifySaveButton.disabled = true;
+  try {
+    const response = await fetch("/api/spotify/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: spotifyClientIdInput.value }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "Spotify configuration failed");
+    applySpotifyStatus(payload);
+  } catch (error) {
+    spotifySettingStatus.textContent = "Error de configuracion";
+    console.error(error);
+  } finally {
+    spotifySaveButton.disabled = false;
+  }
+}
+
+async function connectSpotify() {
+  try {
+    const response = await fetch("/api/spotify/connect", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "Spotify connection failed");
+    window.open(payload.authorization_url, "_blank", "noopener");
+  } catch (error) {
+    spotifySettingStatus.textContent = "Guarda el Client ID primero";
+    console.error(error);
+  }
+}
+
+async function controlSpotify(action) {
+  try {
+    const response = await fetch(`/api/spotify/control/${action}`, { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "Spotify control failed");
+    applySpotifyStatus(payload);
+  } catch (error) {
+    spotifySettingStatus.textContent = "Error de reproduccion";
+    console.error(error);
+  }
+}
+
+async function disconnectSpotify() {
+  try {
+    const response = await fetch("/api/spotify/disconnect", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.detail || "Spotify disconnect failed");
+    applySpotifyStatus(payload);
+  } catch (error) {
+    spotifySettingStatus.textContent = "Error al desconectar";
+    console.error(error);
   }
 }
 
@@ -838,6 +944,13 @@ function connectAssistantSocket() {
   socket.addEventListener("close", () => window.setTimeout(connectAssistantSocket, 1500));
 }
 
+function connectSpotifySocket() {
+  const scheme = window.location.protocol === "https:" ? "wss" : "ws";
+  const socket = new WebSocket(`${scheme}://${window.location.host}/ws/spotify`);
+  socket.addEventListener("message", (event) => applySpotifyStatus(JSON.parse(event.data)));
+  socket.addEventListener("close", () => window.setTimeout(connectSpotifySocket, 1500));
+}
+
 function updateIdleCycle() {
   const state = shell.dataset.state;
   if (state !== "IDLE" && state !== "SLEEPING") {
@@ -948,6 +1061,15 @@ settingsDialog.addEventListener("click", (event) => {
 
 shutdownButton.addEventListener("click", shutdownSystem);
 saveProfileButton.addEventListener("click", saveAssistantProfile);
+spotifySaveButton.addEventListener("click", saveSpotifyConfiguration);
+spotifyConnectButton.addEventListener("click", connectSpotify);
+spotifyDisconnectButton.addEventListener("click", disconnectSpotify);
+spotifyPreviousButton.addEventListener("click", () => controlSpotify("previous"));
+spotifyToggleButton.addEventListener("click", () => {
+  controlSpotify(spotifyStatus.playback?.is_playing ? "pause" : "resume");
+});
+spotifyNextButton.addEventListener("click", () => controlSpotify("next"));
+spotifyStopButton.addEventListener("click", () => controlSpotify("pause"));
 
 window.addEventListener("pointermove", handlePointerMove, { passive: true });
 window.addEventListener("pointerdown", registerActivity, { passive: true });
@@ -972,6 +1094,8 @@ loadTTSStatus().catch((error) => {
   console.error(error);
 });
 loadAssistantProfile().catch((error) => console.error(error));
+loadSpotifyConfiguration().catch((error) => console.error(error));
+loadSpotifyStatus().catch((error) => console.error(error));
 updateLocalClock();
 window.setInterval(updateLocalClock, 1000);
 connectStateSocket();
@@ -979,4 +1103,5 @@ connectCameraSocket();
 connectAudioSocket();
 connectTTSSocket();
 connectAssistantSocket();
+connectSpotifySocket();
 window.setInterval(updateIdleCycle, 1000);

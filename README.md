@@ -197,6 +197,30 @@ solo por el indice variable de Windows o ALSA. Si el dispositivo guardado no
 esta conectado, UGAssistant selecciona ninguno en vez de cambiar a otro. El
 archivo es local, no contiene audio o video y no se envia fuera del equipo.
 
+## Spotify opcional
+
+Spotify es la unica integracion externa opcional. La voz, vision, LLM y TTS
+siguen ejecutandose en local. Para activarlo, crea una aplicacion personal en
+el panel de Spotify for Developers, copia su `Client ID` en Configuracion y
+registra exactamente esta URI de retorno:
+
+```text
+http://127.0.0.1:8000/api/spotify/callback
+```
+
+Pulsa `Conectar` para abrir la autorizacion oficial de Spotify. UGAssistant usa
+OAuth 2.0 con PKCE: no lee ni guarda cookies del navegador. El token renovable
+se conserva solo en `data/spotify.tokens.json`, cifrado con DPAPI en Windows y
+con permisos locales restrictivos en Raspberry Pi; queda fuera del control de
+versiones. `Desconectar` borra ese token local.
+
+Con Spotify conectado y un dispositivo Spotify activo, se puede decir `hola,
+pon musica` para que pregunte que se desea escuchar, o `hola, reproduce <tema>`
+para buscarlo directamente. `hola, deten la reproduccion` y el gesto de
+cremallera pausan Spotify. El control remoto de reproduccion requiere Spotify
+Premium; el lateral muestra la pista y ofrece pausa, reanudar, anterior y
+siguiente cuando Spotify permite esos controles.
+
 ## Dispositivos de audio
 
 La aplicacion enumera entradas y salidas con `sounddevice` y PortAudio. En

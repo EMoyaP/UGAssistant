@@ -12,6 +12,7 @@ from ugassistant.services.conversation import ConversationService
 from ugassistant.services.recognition import VoiceRecognitionService
 from ugassistant.services.audio import NoSpeechDetectedError
 from ugassistant.services.speech import SpeechService
+from ugassistant.services.spotify import SpotifyService
 
 
 logger = logging.getLogger("ugassistant.voice_assistant")
@@ -44,6 +45,7 @@ class VoiceAssistantService:
         speech_service: SpeechService,
         conversation_service: ConversationService,
         *,
+        spotify_service: SpotifyService | None = None,
         spanish_wake_words: tuple[str, ...] = ("hola",),
         french_wake_words: tuple[str, ...] = ("salut",),
         spanish_greeting: str = "¿Qué desea?",
@@ -55,6 +57,7 @@ class VoiceAssistantService:
         self._recognition_service = recognition_service
         self._speech_service = speech_service
         self._conversation_service = conversation_service
+        self._spotify_service = spotify_service
         self._wake_words = {
             "es": self._normalized_words(spanish_wake_words),
             "fr": self._normalized_words(french_wake_words),
@@ -157,6 +160,8 @@ class VoiceAssistantService:
                 language=wake.language,
             )
             question = await self._recognition_service.recognize_once()
+            if await self._handle_music_request(wake.text, question.text, question.language):
+                return
             await self._set_status(
                 busy=True,
                 phase="asking_response_detail",
@@ -227,6 +232,147 @@ class VoiceAssistantService:
             ):
                 return language
         return None
+
+    async def _handle_music_request(
+        self,
+        wake_transcript: str,
+        question: str,
+        language: str,
+    ) -> bool:
+        request = self._music_request(question)
+        if request is None:
+            return False
+        action, query = request
+        locale = "fr_FR" if language.casefold() == "fr" else "es_ES"
+        if self._spotify_service is None:
+            return False
+        if action == "stop":
+            try:
+                await self._spotify_service.stop()
+                response = (
+                    "J'ai arrete Spotify."
+                    if locale == "fr_FR"
+                    else "He detenido Spotify."
+                )
+            except Exception:
+                logger.exception("spotify_stop_by_voice_failed")
+                response = (
+                    "Je ne peux pas arreter Spotify maintenant."
+                    if locale == "fr_FR"
+                    else "No puedo detener Spotify ahora mismo."
+                )
+            await self._speech_service.select_language(locale)
+            await self._speech_service.speak(response)
+            await self._set_status(
+                busy=False,
+                phase="waiting_for_wake_word",
+                detail="music_stopped",
+                wake_transcript=wake_transcript,
+                language=language,
+            )
+            return True
+
+        if not query:
+            prompt = (
+                "Qu'est-ce que vous voulez ecouter ?"
+                if locale == "fr_FR"
+                else "Que quieres escuchar?"
+            )
+            await self._speech_service.select_language(locale)
+            await self._speech_service.speak(prompt)
+            await self._set_status(
+                busy=True,
+                phase="listening_for_music",
+                detail="waiting_for_music_query",
+                wake_transcript=wake_transcript,
+                language=language,
+            )
+            try:
+                requested_music = await self._recognition_service.recognize_once()
+            except NoSpeechDetectedError:
+                await self._set_status(
+                    busy=False,
+                    phase="waiting_for_wake_word",
+                    detail="music_query_timeout",
+                    wake_transcript=wake_transcript,
+                    language=language,
+                )
+                return True
+            query = requested_music.text
+            language = requested_music.language
+            locale = "fr_FR" if language.casefold() == "fr" else "es_ES"
+
+        await self._set_status(
+            busy=True,
+            phase="starting_music",
+            detail="spotify_search",
+            wake_transcript=wake_transcript,
+            language=language,
+        )
+        try:
+            status = await self._spotify_service.play_query(query)
+            playback = status.playback
+            if playback is None or not playback.title:
+                raise RuntimeError("Spotify playback did not start")
+            response = (
+                f"Je joue {playback.title}, par {playback.artists}."
+                if locale == "fr_FR"
+                else f"Reproduciendo {playback.title}, de {playback.artists}."
+            )
+        except Exception:
+            logger.exception("spotify_play_by_voice_failed")
+            response = (
+                "Necesito que conectes Spotify desde Configuracion y tengas un dispositivo Spotify activo."
+                if locale == "es_ES"
+                else "Connectez Spotify dans Configuration et activez un appareil Spotify."
+            )
+        await self._speech_service.select_language(locale)
+        await self._speech_service.speak(response)
+        await self._set_status(
+            busy=False,
+            phase="waiting_for_wake_word",
+            detail="music_started",
+            wake_transcript=wake_transcript,
+            language=language,
+        )
+        return True
+
+    @classmethod
+    def _music_request(cls, transcript: str) -> tuple[str, str] | None:
+        normalized = cls._normalize(transcript)
+        if any(
+            word in normalized
+            for word in (
+                "deten", "detener", "para musica", "para la musica", "pausa",
+                "arrete", "arreter", "pause la musique",
+            )
+        ):
+            return ("stop", "")
+        music_words = ("musica", "spotify", "musique")
+        starters = ("pon", "reproduce", "reproducir", "escucha", "joue", "mets")
+        if not any(word in normalized for word in music_words) and not any(
+            normalized.startswith(starter) for starter in starters
+        ):
+            return None
+        query = re.sub(
+            r"^(pon|reproduce|reproducir|escucha|joue|mets)\s+",
+            "",
+            transcript,
+            flags=re.IGNORECASE,
+        )
+        query = re.sub(
+            r"^(la\\s+)?(musica|música|musique)(\\s+de)?\\s*",
+            "",
+            query,
+            flags=re.IGNORECASE,
+        ).strip()
+        query = re.sub(
+            r"^(la\s+)?(m.sica|musique)(\s+de)?\s*",
+            "",
+            query,
+            flags=re.IGNORECASE,
+        ).strip()
+        return ("play", query)
 
     async def _complete_answer_loop(
         self,

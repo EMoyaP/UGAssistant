@@ -17,6 +17,7 @@ from ugassistant.domain.ports import (
     TTSVoice,
     TranscriptionResult,
 )
+from ugassistant.domain.spotify import SpotifyPlayback, SpotifyStatus
 
 
 class SimulatedLLMAdapter:
@@ -269,3 +270,70 @@ class SimulatedAudioAdapter:
             self._on_monitor_audio_chunk(level, pcm_bytes)
         if self._on_audio_chunk is not None:
             self._on_audio_chunk(level, pcm_bytes)
+
+
+class SimulatedSpotifyAdapter:
+    def __init__(self) -> None:
+        self.client_id = ""
+        self.connected = False
+        self.playback: SpotifyPlayback | None = None
+        self.played_queries: list[str] = []
+        self.controls: list[str] = []
+
+    def configure(self, client_id: str) -> None:
+        self.client_id = client_id.strip()
+
+    async def authorization_url(self) -> str:
+        if not self.client_id:
+            raise RuntimeError("Spotify Client ID is not configured")
+        return "https://accounts.spotify.com/authorize?simulated=true"
+
+    async def complete_authorization(self, code: str, state: str) -> SpotifyStatus:
+        del code, state
+        self.connected = True
+        return await self.status()
+
+    async def status(self) -> SpotifyStatus:
+        return SpotifyStatus(
+            configured=bool(self.client_id),
+            connected=self.connected,
+            detail=(
+                "playing"
+                if self.playback is not None and self.playback.is_playing
+                else "ready" if self.connected else "not_connected"
+            ) if self.client_id else "not_configured",
+            playback=self.playback,
+        )
+
+    async def play_query(self, query: str) -> SpotifyStatus:
+        if not self.connected:
+            raise RuntimeError("Spotify is not connected")
+        self.played_queries.append(query)
+        self.playback = SpotifyPlayback(
+            track_id="simulated-track",
+            title=query,
+            artists="Spotify simulado",
+            album="UGAssistant",
+            is_playing=True,
+            duration_ms=180000,
+            device_name="Simulated Spotify device",
+        )
+        return await self.status()
+
+    async def control(self, action: str) -> SpotifyStatus:
+        self.controls.append(action)
+        if self.playback is not None:
+            if action == "pause":
+                self.playback = SpotifyPlayback(
+                    **{**self.playback.__dict__, "is_playing": False}
+                )
+            elif action == "resume":
+                self.playback = SpotifyPlayback(
+                    **{**self.playback.__dict__, "is_playing": True}
+                )
+        return await self.status()
+
+    async def disconnect(self) -> SpotifyStatus:
+        self.connected = False
+        self.playback = None
+        return await self.status()

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>UGAssistant</title>
-    <link rel="stylesheet" href="/static/styles.css?v=17">
+    <link rel="stylesheet" href="/static/styles.css?v=18">
   </head>
   <body>
     <main class="app-shell" data-state="IDLE" data-curious="false" data-mood="">
@@ -113,6 +113,24 @@
           <p class="conversation-empty">La conversacion aparecera aqui.</p>
         </div>
       </aside>
+
+      <aside id="spotifyPanel" class="spotify-panel" aria-label="Reproductor de Spotify">
+        <header>
+          <p>SPOTIFY</p>
+          <h2 id="spotifyTrackTitle">Sin reproduccion</h2>
+          <span id="spotifyTrackArtist">Conecta Spotify desde configuracion</span>
+        </header>
+        <div class="spotify-playback">
+          <span id="spotifyPlaybackState" class="spotify-state">En espera</span>
+          <span id="spotifyDeviceName" class="spotify-device"></span>
+          <div class="spotify-controls" aria-label="Controles de Spotify">
+            <button id="spotifyPreviousButton" type="button" aria-label="Pista anterior" title="Pista anterior">&#9198;</button>
+            <button id="spotifyToggleButton" type="button" aria-label="Pausar" title="Pausar">&#10074;&#10074;</button>
+            <button id="spotifyNextButton" type="button" aria-label="Pista siguiente" title="Pista siguiente">&#9197;</button>
+            <button id="spotifyStopButton" type="button" aria-label="Detener reproduccion" title="Detener reproduccion">&#9632;</button>
+          </div>
+        </div>
+      </aside>
     </main>
 
     <dialog id="settingsDialog" class="settings-dialog" aria-labelledby="settingsTitle">
@@ -154,6 +172,24 @@
             <div class="debug-links">
               <a href="/debug/camera" target="_blank" rel="noopener">Debug de camara</a>
               <a href="/debug/audio" target="_blank" rel="noopener">Debug de audio</a>
+            </div>
+          </section>
+
+          <section class="device-setting" aria-labelledby="spotifySettingTitle">
+            <div class="device-setting-heading">
+              <div>
+                <h3 id="spotifySettingTitle">Spotify</h3>
+                <p id="spotifySettingStatus">Sin configurar</p>
+              </div>
+            </div>
+            <label class="device-field" for="spotifyClientIdInput">
+              <span>Spotify Client ID</span>
+              <input id="spotifyClientIdInput" type="text" maxlength="128" autocomplete="off">
+            </label>
+            <div class="profile-actions spotify-actions">
+              <button id="spotifySaveButton" type="button" class="primary-button">Guardar</button>
+              <button id="spotifyConnectButton" type="button" class="secondary-button">Conectar</button>
+              <button id="spotifyDisconnectButton" type="button" class="secondary-button">Desconectar</button>
             </div>
           </section>
 
@@ -249,6 +285,6 @@
       </form>
     </dialog>
 
-    <script src="/static/app.js?v=19" defer></script>
+    <script src="/static/app.js?v=20" defer></script>
   </body>
 </html>

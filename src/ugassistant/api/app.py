@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -18,6 +18,11 @@ from ugassistant.adapters.opencv_camera import OpenCVCameraAdapter
 from ugassistant.adapters.piper_tts import PiperTTSAdapter, PiperVoiceConfig
 from ugassistant.adapters.portaudio import PortAudioAdapter
 from ugassistant.adapters.preferences import YAMLPreferenceStore
+from ugassistant.adapters.spotify import (
+    LocalSpotifyTokenStore,
+    SpotifyError,
+    SpotifyWebAPIAdapter,
+)
 from ugassistant.adapters.whisper_cpp_stt import WhisperCppSTTAdapter
 from ugassistant.config import AppSettings, load_app_settings, load_model_lock
 from ugassistant.domain.ports import (
@@ -31,6 +36,7 @@ from ugassistant.domain.ports import (
 )
 from ugassistant.domain.platform import detect_platform
 from ugassistant.domain.preferences import UserPreferences
+from ugassistant.domain.spotify import SpotifyAdapter, SpotifyStatus
 from ugassistant.domain.state_machine import (
     AssistantState,
     AssistantStateMachine,
@@ -50,6 +56,7 @@ from ugassistant.services.recognition import (
     VoiceRecognitionService,
 )
 from ugassistant.services.speech import SpeechBusyError, SpeechService, SpeechStatus
+from ugassistant.services.spotify import SpotifyService
 from ugassistant.services.voice_assistant import (
     VoiceAssistantService,
     VoiceAssistantStatus,
@@ -71,6 +78,14 @@ class ConversationRequest(BaseModel):
 class AssistantProfileRequest(BaseModel):
     spanish_wake_word: str
     french_wake_word: str
+
+
+class SpotifyConfigurationRequest(BaseModel):
+    client_id: str = ""
+
+
+class SpotifyPlayRequest(BaseModel):
+    query: str
 
 
 class StateConnectionManager:
@@ -106,6 +121,7 @@ def create_app(
     stt_adapter: STTAdapter | None = None,
     preference_store: YAMLPreferenceStore | None = None,
     llm_adapter: LLMAdapter | None = None,
+    spotify_adapter: SpotifyAdapter | None = None,
 ) -> FastAPI:
     settings = settings or load_app_settings()
     state_machine = AssistantStateMachine()
@@ -116,6 +132,7 @@ def create_app(
     recognition_manager = StateConnectionManager()
     conversation_manager = StateConnectionManager()
     assistant_manager = StateConnectionManager()
+    spotify_manager = StateConnectionManager()
     static_dir = Path(__file__).resolve().parents[1] / "web" / "static"
     platform_info = detect_platform()
     preference_store = preference_store or YAMLPreferenceStore(settings.preferences_path)
@@ -230,6 +247,11 @@ def create_app(
             silence_gesture_active = True
             if speech_service.status.busy:
                 await speech_service.interrupt()
+            if spotify_service.status.playback is not None:
+                try:
+                    await spotify_service.stop()
+                except SpotifyError:
+                    logger.exception("spotify_stop_from_silence_gesture_failed")
         elif not has_silence_gesture:
             silence_gesture_active = False
         has_end_gesture = (
@@ -513,6 +535,23 @@ def create_app(
         on_status=on_conversation_status,
     )
 
+    if spotify_adapter is None:
+        spotify_adapter = SpotifyWebAPIAdapter(
+            LocalSpotifyTokenStore(settings.spotify_token_path),
+            redirect_uri=settings.spotify_redirect_uri,
+            market=settings.spotify_market,
+        )
+
+    async def on_spotify_status(status: SpotifyStatus) -> None:
+        await spotify_manager.broadcast(status.to_dict())
+
+    spotify_service = SpotifyService(
+        spotify_adapter,
+        on_status=on_spotify_status,
+    )
+    if preferences is not None:
+        spotify_service.configure(preferences.spotify_client_id)
+
     async def on_voice_assistant_status(status: VoiceAssistantStatus) -> None:
         await assistant_manager.broadcast(status.to_dict())
 
@@ -521,6 +560,7 @@ def create_app(
         recognition_service,
         speech_service,
         conversation_service,
+        spotify_service=spotify_service,
         spanish_wake_words=settings.wake_spanish_words,
         french_wake_words=settings.wake_french_words,
         spanish_greeting=settings.wake_spanish_greeting,
@@ -557,6 +597,9 @@ def create_app(
                 voice_assistant_service.wake_words["fr"][0]
                 if voice_assistant_service.wake_words["fr"]
                 else settings.wake_french_words[0]
+            ),
+            spotify_client_id=(
+                preferences.spotify_client_id if preferences is not None else ""
             ),
         )
 
@@ -626,6 +669,10 @@ def create_app(
         except Exception:
             logger.exception("ollama_startup_scan_failed")
         try:
+            await spotify_service.refresh()
+        except SpotifyError:
+            logger.info("spotify_startup_status_unavailable")
+        try:
             if preferences is not None:
                 await camera_service.restore_device_preference(
                     preferences.camera_device
@@ -660,12 +707,14 @@ def create_app(
     app.state.recognition_manager = recognition_manager
     app.state.conversation_manager = conversation_manager
     app.state.assistant_manager = assistant_manager
+    app.state.spotify_manager = spotify_manager
     app.state.camera_service = camera_service
     app.state.audio_service = audio_service
     app.state.speech_service = speech_service
     app.state.recognition_service = recognition_service
     app.state.conversation_service = conversation_service
     app.state.voice_assistant_service = voice_assistant_service
+    app.state.spotify_service = spotify_service
     app.state.preference_store = preference_store
     app.state.shutdown_callback = None
 
@@ -696,6 +745,7 @@ def create_app(
             "tts": speech_service.status.to_dict(),
             "stt": recognition_service.status.to_dict(),
             "llm": conversation_service.status.to_dict(),
+            "spotify": spotify_service.status.to_dict(),
             "voice_assistant": voice_assistant_service.status.to_dict(),
         }
 
@@ -730,6 +780,76 @@ def create_app(
             french_wake_word=french,
         )
         return await get_assistant_profile()
+
+    @app.get("/api/spotify")
+    async def get_spotify_status() -> dict[str, object]:
+        try:
+            return (await spotify_service.refresh()).to_dict()
+        except SpotifyError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @app.get("/api/spotify/config")
+    async def get_spotify_configuration() -> dict[str, str]:
+        current = preferences or await snapshot_preferences()
+        return {
+            "client_id": current.spotify_client_id,
+            "redirect_uri": settings.spotify_redirect_uri,
+        }
+
+    @app.put("/api/spotify/config")
+    async def update_spotify_configuration(
+        request: SpotifyConfigurationRequest,
+    ) -> dict[str, object]:
+        client_id = "".join(request.client_id.split())[:128]
+        spotify_service.configure(client_id)
+        if not client_id:
+            await spotify_service.disconnect()
+        await update_preferences(spotify_client_id=client_id)
+        return (await spotify_service.refresh()).to_dict()
+
+    @app.post("/api/spotify/connect")
+    async def connect_spotify() -> dict[str, str]:
+        try:
+            return {"authorization_url": await spotify_service.authorization_url()}
+        except SpotifyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.get("/api/spotify/callback")
+    async def spotify_callback(code: str = "", state: str = "", error: str = "") -> HTMLResponse:
+        if error:
+            return HTMLResponse(
+                "<h1>Spotify no se ha conectado.</h1><p>Puedes cerrar esta ventana y volver a UGAssistant.</p>",
+                status_code=400,
+            )
+        try:
+            await spotify_service.complete_authorization(code, state)
+        except SpotifyError:
+            logger.exception("spotify_authorization_failed")
+            return HTMLResponse(
+                "<h1>No se ha podido conectar Spotify.</h1><p>Revisa la configuracion y vuelve a intentarlo.</p>",
+                status_code=400,
+            )
+        return HTMLResponse(
+            "<h1>Spotify conectado.</h1><p>Puedes cerrar esta ventana y volver a UGAssistant.</p>",
+        )
+
+    @app.post("/api/spotify/play")
+    async def spotify_play(request: SpotifyPlayRequest) -> dict[str, object]:
+        try:
+            return (await spotify_service.play_query(request.query)).to_dict()
+        except (SpotifyError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post("/api/spotify/control/{action}")
+    async def spotify_control(action: str) -> dict[str, object]:
+        try:
+            return (await spotify_service.control(action)).to_dict()
+        except (SpotifyError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post("/api/spotify/disconnect")
+    async def disconnect_spotify() -> dict[str, object]:
+        return (await spotify_service.disconnect()).to_dict()
 
     @app.post("/api/system/shutdown")
     async def shutdown_system() -> dict[str, str]:
@@ -1149,5 +1269,18 @@ def create_app(
         except Exception:
             logger.exception("voice_assistant_websocket_error")
             await assistant_manager.disconnect(websocket)
+
+    @app.websocket("/ws/spotify")
+    async def spotify_socket(websocket: WebSocket) -> None:
+        await spotify_manager.connect(websocket)
+        await websocket.send_json(spotify_service.status.to_dict())
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            await spotify_manager.disconnect(websocket)
+        except Exception:
+            logger.exception("spotify_websocket_error")
+            await spotify_manager.disconnect(websocket)
 
     return app

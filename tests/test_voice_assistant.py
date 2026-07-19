@@ -129,6 +129,14 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service._response_detail("respuesta corta"), "short")
         self.assertEqual(service._response_detail("reponse courte"), "short")
         self.assertEqual(service._response_detail("respuesta completa"), "complete")
+        self.assertEqual(
+            service._music_request("Pon musica de Queen"),
+            ("play", "Queen"),
+        )
+        self.assertEqual(
+            service._music_request("Deten la reproduccion"),
+            ("stop", ""),
+        )
 
     async def test_reports_waiting_for_wake_word_when_monitoring_is_enabled(self) -> None:
         audio = AudioDeviceService(SimulatedAudioAdapter())

@@ -88,3 +88,7 @@ development:
   simulated_adapters: true
 persistence:
   preferences_path: "data/preferences.yaml"
+spotify:
+  redirect_uri: "http://127.0.0.1:8000/api/spotify/callback"
+  token_path: "data/spotify.tokens.json"
+  market: "ES"
