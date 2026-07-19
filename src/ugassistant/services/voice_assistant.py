@@ -146,6 +146,22 @@ class VoiceAssistantService:
                 return
             if not self._audio_service.status.output_enabled:
                 raise RuntimeError("Audio output is disabled")
+            inline_question = self._wake_remainder(wake.text, wake_language)
+            if self._music_request(inline_question) is not None:
+                await self._set_status(
+                    busy=True,
+                    phase="starting_music",
+                    detail="music_command_with_wake_word",
+                    wake_transcript=wake.text,
+                    question=inline_question,
+                    language=wake_language,
+                )
+                await self._handle_music_request(
+                    wake.text,
+                    inline_question,
+                    wake_language,
+                )
+                return
             await self._set_status(
                 busy=True,
                 phase="greeting",
@@ -237,6 +253,13 @@ class VoiceAssistantService:
             ):
                 return language
         return None
+
+    def _wake_remainder(self, transcript: str, language: str) -> str:
+        for wake_word in self._wake_words.get(language, frozenset()):
+            match = re.search(rf"\b{re.escape(wake_word)}\b", transcript, re.IGNORECASE)
+            if match is not None:
+                return transcript[match.end():].lstrip(" ,.:;!?-\u2026")
+        return ""
 
     async def _handle_music_request(
         self,
@@ -378,16 +401,11 @@ class VoiceAssistantService:
             return ("stop", "", False)
         music_words = ("musica", "spotify", "musique")
         starters = ("pon", "reproduce", "reproducir", "escucha", "joue", "mets")
-        if not any(word in normalized for word in music_words) and not any(
-            normalized.startswith(starter) for starter in starters
-        ):
+        starter_pattern = r"\b(?:" + "|".join(starters) + r")\b"
+        starter_match = re.search(starter_pattern, normalized)
+        if not any(word in normalized for word in music_words) and starter_match is None:
             return None
-        query = re.sub(
-            r"^(pon|reproduce|reproducir|escucha|joue|mets)\s+",
-            "",
-            transcript,
-            flags=re.IGNORECASE,
-        )
+        query = transcript[starter_match.end():] if starter_match is not None else transcript
         query = re.sub(
             r"^(la\\s+)?(musica|música|musique)(\\s+de)?\\s*",
             "",

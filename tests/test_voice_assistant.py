@@ -131,6 +131,10 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service._wake_language("hola!"), "es")
         self.assertEqual(service._wake_language("salut"), "fr")
         self.assertIsNone(service._wake_language("bonjour"))
+        self.assertEqual(
+            service._wake_remainder("Hola, reproduce Madonna.", "es"),
+            "reproduce Madonna.",
+        )
         self.assertEqual(service._response_detail("respuesta corta"), "short")
         self.assertEqual(service._response_detail("reponse courte"), "short")
         self.assertEqual(service._response_detail("respuesta completa"), "complete")
@@ -145,6 +149,10 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             service._music_request("Reproduce Madonna"),
             ("play", "Madonna", True),
+        )
+        self.assertEqual(
+            service._music_request("... reproduce Madonna."),
+            ("play", "Madonna.", True),
         )
         self.assertEqual(
             service._music_request("Reproduce la cancion Like a Prayer"),
