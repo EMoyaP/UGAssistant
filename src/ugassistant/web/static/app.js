@@ -81,6 +81,7 @@ let spotifyPollTimer = null;
 let spotifyWebPlayer = null;
 let spotifyWebPlayerLoading = false;
 let spotifyWebPlayerActivated = false;
+let spotifyWebPlayerDeviceId = "";
 
 function stopLipSync() {
   if (lipSyncFrame !== null) {
@@ -328,9 +329,11 @@ function ensureSpotifyWebPlayer() {
       enableMediaSession: true,
     });
     spotifyWebPlayer.addListener("ready", ({ device_id: deviceId }) => {
-      registerSpotifyWebPlayer(deviceId);
+      spotifyWebPlayerDeviceId = deviceId;
+      setSpotifyLocalPlayerStatus("Pulsa Activar reproductor local para permitir el audio.");
     });
     spotifyWebPlayer.addListener("not_ready", () => {
+      spotifyWebPlayerDeviceId = "";
       setSpotifyLocalPlayerStatus("El reproductor local no esta disponible.");
     });
     spotifyWebPlayer.addListener("player_state_changed", () => {
@@ -383,9 +386,11 @@ async function registerSpotifyWebPlayer(deviceId) {
     if (!response.ok) throw new Error(payload.detail || "Spotify device registration failed");
     setSpotifyLocalPlayerStatus("Reproductor local listo.");
     applySpotifyStatus(payload);
+    return true;
   } catch (error) {
     setSpotifyLocalPlayerStatus("No se pudo registrar el reproductor local.");
     console.error("spotify_web_player_registration_failed", error);
+    return false;
   }
 }
 
@@ -394,9 +399,15 @@ function activateSpotifyWebPlayer() {
     ensureSpotifyWebPlayer();
     return;
   }
-  spotifyWebPlayer.activateElement().then(() => {
-    spotifyWebPlayerActivated = true;
-    setSpotifyLocalPlayerStatus("Reproductor local activado.");
+  if (!spotifyWebPlayerDeviceId) {
+    setSpotifyLocalPlayerStatus("El reproductor local aun se esta preparando.");
+    return;
+  }
+  spotifyWebPlayer.activateElement().then(async () => {
+    if (await registerSpotifyWebPlayer(spotifyWebPlayerDeviceId)) {
+      spotifyWebPlayerActivated = true;
+      setSpotifyLocalPlayerStatus("Reproductor local activado.");
+    }
   }).catch((error) => {
     setSpotifyLocalPlayerStatus("Pulsa de nuevo para permitir el audio de Spotify.");
     console.error("spotify_web_player_activation_failed", error);
@@ -408,6 +419,7 @@ function disconnectSpotifyWebPlayer() {
   spotifyWebPlayer = null;
   spotifyWebPlayerLoading = false;
   spotifyWebPlayerActivated = false;
+  spotifyWebPlayerDeviceId = "";
   setSpotifyLocalPlayerStatus("El reproductor local se prepara al conectar Spotify.");
 }
 
