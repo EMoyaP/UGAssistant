@@ -239,13 +239,17 @@ function clearConversationHideTimer() {
   }
 }
 
+function clearConversationPanel() {
+  clearConversationHideTimer();
+  shell.dataset.session = "false";
+  renderedTurnKey = "";
+  conversationTurns.replaceChildren();
+}
+
 function hideConversationAfterFarewell() {
   clearConversationHideTimer();
   conversationHideTimer = window.setTimeout(() => {
-    shell.dataset.session = "false";
-    renderedTurnKey = "";
-    conversationTurns.replaceChildren();
-    conversationHideTimer = null;
+    clearConversationPanel();
   }, CONVERSATION_HIDE_AFTER_MS);
 }
 
@@ -438,6 +442,14 @@ function applyCameraStatus(payload) {
 
   if (payload.person_detected || (payload.hands && payload.hands.length)) {
     registerActivity();
+  }
+  if (
+    Array.isArray(payload.combined_gestures)
+    && payload.combined_gestures.some(
+      (gesture) => gesture.gesture === "POINTING_AT_MOUTH",
+    )
+  ) {
+    clearConversationPanel();
   }
   applyDetectedMood(payload.hands, payload.combined_gestures);
   if (!pointerActive) {
