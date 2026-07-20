@@ -202,7 +202,8 @@ en memoria y se borra despues de cada intento.
 Para usar temporizadores di `hola, temporizador`. El asistente pregunta `De
 cuanto tiempo?`; por ejemplo, `de 10 minutos`, y confirma que empieza de
 inmediato. Tambien se acepta `hola, temporizador de 10 minutos`. Al terminar,
-se reproduce una alarma local de dos segundos y se anuncia el temporizador
+se reproduce una alarma local de despertador de dos segundos, generada sin
+archivos externos, y se anuncia el temporizador
 finalizado. Un temporizador no bloquea preguntas, musica ni el resto del modo
 de voz. Para cambiar o cancelar uno se puede decir `hola, quiero modificar el
 temporizador` o `hola, cancelar temporizador`; si hay varios activos, el

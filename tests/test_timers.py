@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from array import array
 import io
 import unittest
 import wave
@@ -39,6 +40,10 @@ class TimerServiceTests(unittest.IsolatedAsyncioTestCase):
         with wave.open(io.BytesIO(wav_bytes), "rb") as wav_file:
             self.assertEqual(wav_file.getframerate(), 16000)
             self.assertEqual(wav_file.getnframes(), 32000)
+            samples = array("h", wav_file.readframes(wav_file.getnframes()))
+
+        self.assertGreater(max(abs(sample) for sample in samples), 5000)
+        self.assertEqual(samples[0], 0)
 
     async def test_modification_keeps_its_label_and_reorders_the_status(self) -> None:
         service = TimerService()

@@ -484,39 +484,44 @@ h1 {
   z-index: 6;
   top: -4%;
   left: 50%;
-  width: min(280px, 86%);
+  width: min(340px, 92%);
   display: grid;
   gap: 6px;
   transform: translateX(-50%);
 }
 
 .timer-chip {
-  min-height: 38px;
-  padding: 6px 10px;
+  min-height: 58px;
+  padding: 8px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid rgba(240, 200, 90, 0.78);
+  border: 2px solid #f0c85a;
   border-radius: 6px;
-  color: #fff6d6;
-  background: rgba(30, 27, 17, 0.92);
-  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.3);
-  font-size: 12px;
+  color: #fff;
+  background: rgba(20, 24, 30, 0.98);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.48);
+  font-size: 16px;
 }
 
 .timer-chip span {
   overflow: hidden;
-  color: #f0c85a;
+  color: #ffe28a;
+  font-weight: 700;
+  text-shadow: 0 1px 2px #000;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .timer-chip strong {
   flex: 0 0 auto;
-  color: var(--text);
+  color: #fff;
   font-family: Consolas, monospace;
-  font-size: 15px;
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 2px 3px #000;
 }
 
 .signal-ring {

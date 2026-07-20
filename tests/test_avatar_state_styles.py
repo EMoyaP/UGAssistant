@@ -41,6 +41,22 @@ class AvatarStateStyleTests(unittest.TestCase):
         self.assertIn('.app-shell[data-spotify-playing="true"] .listening-headphones', styles)
         self.assertIn("animation: music-listening", styles)
 
+    def test_timer_countdown_uses_large_high_contrast_text(self) -> None:
+        styles_path = (
+            Path(__file__).resolve().parents[1]
+            / "src"
+            / "ugassistant"
+            / "web"
+            / "static"
+            / "styles.css"
+        )
+        styles = styles_path.read_text(encoding="utf-8")
+
+        self.assertIn(".timer-chip strong", styles)
+        self.assertIn("font-size: 30px", styles)
+        self.assertIn("background: rgba(20, 24, 30, 0.98)", styles)
+        self.assertIn("color: #fff", styles)
+
 
 if __name__ == "__main__":
     unittest.main()
