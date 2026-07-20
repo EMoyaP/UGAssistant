@@ -1,5 +1,21 @@
 # Third-party notices
 
+## Google Gemma 3
+
+UGAssistant is configured to use the local Ollama model `gemma3:4b`. The model
+weights are downloaded separately by the user through Ollama and are not
+included in this repository.
+
+Source: <https://ollama.com/library/gemma3>
+
+Gemma is provided under and subject to the Gemma Terms of Use found at
+<https://ai.google.dev/gemma/terms>. Its prohibited-use policy also applies:
+<https://ai.google.dev/gemma/prohibited_use_policy>.
+
+The installed manifest digest is locked in `config/models.lock.yaml`. Anyone
+redistributing Gemma or a derivative must comply with the Gemma Terms of Use,
+including its notice and use-restriction requirements.
+
 ## Twemoji
 
 The thinking-hand silhouette is adapted from the Twemoji `1f914.svg` asset.

@@ -29,7 +29,7 @@ El asistente debe:
 
 Windows y Raspberry Pi deben utilizar exactamente los mismos modelos y archivos:
 
-* LLM: Ollama `qwen3:4b-instruct`.
+* LLM: Ollama `gemma3:4b`.
 * STT: whisper.cpp `ggml-base.bin`, modelo multilingüe.
 * TTS: Piper `es_ES-davefx-medium.onnx`.
 * Visión facial: YuNet `face_detection_yunet_2023mar.onnx`.

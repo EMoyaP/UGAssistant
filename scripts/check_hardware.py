@@ -102,7 +102,7 @@ def check_ollama() -> CheckResult:
     if ok:
         listed, models_output = run_command([path, "list"], timeout=15.0)
         model_installed = listed and any(
-            line.split(maxsplit=1)[0] == "qwen3:4b-instruct"
+            line.split(maxsplit=1)[0] == "gemma3:4b"
             for line in models_output.splitlines()[1:]
             if line.strip()
         )
@@ -110,17 +110,17 @@ def check_ollama() -> CheckResult:
         name="ollama",
         ok=ok and model_installed,
         detail=(
-            "Ollama and locked qwen3:4b-instruct model available"
+            "Ollama and locked gemma3:4b model available"
             if ok and model_installed
             else (
-                "Ollama found but qwen3:4b-instruct is not installed"
+                "Ollama found but gemma3:4b is not installed"
                 if ok
                 else output or "Ollama could not report its version"
             )
         ),
         data={
             "path": path,
-            "locked_model": "qwen3:4b-instruct",
+            "locked_model": "gemma3:4b",
             "model_installed": model_installed,
             "models": models_output,
         },

@@ -43,6 +43,7 @@ class OllamaAdapter(LLMAdapter):
         *,
         max_tokens: int,
         temperature: float,
+        repeat_penalty: float,
         think: bool,
         context_tokens: int,
     ) -> str:
@@ -62,6 +63,7 @@ class OllamaAdapter(LLMAdapter):
                     "num_predict": max_tokens,
                     "num_ctx": context_tokens,
                     "temperature": temperature,
+                    "repeat_penalty": repeat_penalty,
                 },
             },
         )

@@ -5,18 +5,20 @@ policy:
 models:
   - logical_name: llm
     engine: ollama
-    file_name: "qwen3:4b-instruct"
-    version_or_tag: "qwen3:4b-instruct"
-    sha256: "PENDING_NOT_DOWNLOADED"
-    official_url: "https://ollama.com/library/qwen3:4b-instruct"
-    size: "2.5 GB managed_by_ollama"
+    file_name: "gemma3:4b"
+    version_or_tag: "gemma3:4b"
+    sha256: "a2af6cc3eb7fa8be8504abaf9b04e88f17a119ec3f04a3addf55f92841195f5a"
+    official_url: "https://ollama.com/library/gemma3:4b"
+    size: "3338801804 bytes managed_by_ollama"
     execution:
       host: "127.0.0.1"
       api: "local_ollama"
       short_context_tokens: 2048
       complete_context_tokens: 4096
       short_thinking: false
-      complete_thinking: true
+      complete_thinking: false
+      temperature: 0.2
+      repeat_penalty: 1.08
       max_concurrent_heavy_inferences: 1
   - logical_name: stt
     engine: whisper.cpp

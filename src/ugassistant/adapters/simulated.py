@@ -25,6 +25,7 @@ class SimulatedLLMAdapter:
         self.messages: list[tuple[LLMMessage, ...]] = []
         self.thinking_modes: list[bool] = []
         self.context_windows: list[int] = []
+        self.repeat_penalties: list[float] = []
 
     async def status(self) -> LLMEngineStatus:
         return LLMEngineStatus(True, True, "ready")
@@ -35,6 +36,7 @@ class SimulatedLLMAdapter:
         *,
         max_tokens: int,
         temperature: float,
+        repeat_penalty: float,
         think: bool,
         context_tokens: int,
     ) -> str:
@@ -42,6 +44,7 @@ class SimulatedLLMAdapter:
         self.messages.append(messages)
         self.thinking_modes.append(think)
         self.context_windows.append(context_tokens)
+        self.repeat_penalties.append(repeat_penalty)
         return self.response
 
     async def generate(self, prompt: str) -> str:

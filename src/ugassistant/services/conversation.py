@@ -37,9 +37,10 @@ class ConversationService:
         max_history_turns: int = 3,
         short_context_tokens: int = 2048,
         complete_context_tokens: int = 4096,
-        max_tokens: int = 256,
-        complete_max_tokens: int = 1536,
-        temperature: float = 0.4,
+        max_tokens: int = 384,
+        complete_max_tokens: int = 2048,
+        temperature: float = 0.2,
+        repeat_penalty: float = 1.08,
         on_status: ConversationStatusCallback | None = None,
     ) -> None:
         self._adapter = adapter
@@ -53,6 +54,7 @@ class ConversationService:
         self._max_tokens = max(16, max_tokens)
         self._complete_max_tokens = max(self._max_tokens, complete_max_tokens)
         self._temperature = min(max(temperature, 0.0), 2.0)
+        self._repeat_penalty = min(max(repeat_penalty, 1.0), 1.5)
         self._on_status = on_status
         self._history: list[LLMMessage] = []
         self._lock = asyncio.Lock()
@@ -115,7 +117,9 @@ class ConversationService:
                         tuple(messages),
                         max_tokens=self._max_tokens_for(response_detail),
                         temperature=self._temperature,
-                        think=response_detail == "complete",
+                        repeat_penalty=self._repeat_penalty,
+                        # Gemma 3 4B does not expose Ollama's thinking capability.
+                        think=False,
                         context_tokens=self._context_tokens_for(response_detail),
                     )
                 answer = self._clean_response(raw_answer)
@@ -160,30 +164,43 @@ class ConversationService:
             if language == "fr":
                 return (
                     "Tu es UGAssistant, un assistant local. Reponds uniquement en "
-                    "francais avec une reponse complete, exacte et pratique. Inclus le "
-                    "contexte et les etapes necessaires pour resoudre la demande. Ne "
-                    "donne pas ton raisonnement interne. Si une information est incertaine, "
-                    "dis-le au lieu de l'inventer. Utilise des phrases claires sans markdown, "
-                    "asterisques, titres ou listes a puces. Termine naturellement la reponse."
+                    "francais avec une reponse complete, pratique et proportionnee a la "
+                    "demande. Utilise seulement des informations que tu peux soutenir par "
+                    "des connaissances generales fiables. N'invente pas de faits, ingredients, "
+                    "etapes, dates, chiffres, noms, citations ou sources. Ne presente rien "
+                    "comme authentique, traditionnel, officiel, correct, sur ou garanti si tu "
+                    "ne peux pas le soutenir. Omet les details incertains et dis clairement "
+                    "quand une verification est necessaire. Ne donne pas ton raisonnement "
+                    "interne. Utilise un texte naturel pour la voix, sans markdown, asterisques, "
+                    "titres, liens ou listes a puces. Termine naturellement sans promettre une "
+                    "exactitude factuelle que tu ne peux pas verifier."
                 )
             return (
-                "Eres UGAssistant, un asistente local. Responde solo en espanol con "
-                    "una respuesta completa, exacta y practica. Incluye el contexto y los "
-                "pasos necesarios para resolver la duda. No muestres tu razonamiento "
-                "interno. Si un dato es incierto, indicalo en vez de inventarlo. Usa frases "
-                "claras sin markdown, asteriscos, almohadillas ni listas con guiones. "
-                "Termina la respuesta de forma natural."
+                "Eres UGAssistant, un asistente local. Responde solo en espanol con una "
+                "respuesta completa, practica y proporcionada a la pregunta. Usa solo "
+                "informacion que puedas sostener con conocimiento general fiable. No inventes "
+                "datos, ingredientes, pasos, fechas, cifras, nombres, citas ni fuentes. No "
+                "afirmes que algo es autentico, tradicional, oficial, correcto, seguro o "
+                "garantizado si no puedes sostenerlo. Omite los detalles inciertos y explica "
+                "con claridad cuando sea necesaria una verificacion. No muestres razonamiento "
+                "interno. Usa texto natural apto para voz, sin markdown, asteriscos, "
+                "almohadillas, enlaces ni listas con guiones. Termina de forma natural sin "
+                "prometer una exactitud factual que no puedes verificar."
             )
         if language == "fr":
             return (
                 "Tu es UGAssistant, un assistant local. Reponds uniquement en "
-                "francais, de maniere utile et breve, en deux phrases maximum, sans "
-                "markdown. N'invente pas de faits et ne montre pas ton raisonnement interne."
+                "francais, de maniere utile et breve, en trois phrases maximum, sans "
+                "markdown. N'invente pas de faits et omets les details incertains au lieu "
+                "de les completer. Ne presente rien comme authentique, traditionnel, "
+                "correct ou garanti sans pouvoir le soutenir. Ne montre pas ton raisonnement interne."
             )
         return (
             "Eres UGAssistant, un asistente local. Responde solo en espanol, "
-            "de forma util y breve, en un maximo de dos frases y sin markdown. "
-            "No inventes datos ni muestres tu razonamiento interno."
+            "de forma util y breve, en un maximo de tres frases y sin markdown. "
+            "No inventes datos: omite los detalles inciertos en vez de rellenarlos. "
+            "No afirmes que algo es autentico, tradicional, correcto o garantizado si "
+            "no puedes sostenerlo, y no muestres tu razonamiento interno."
         )
 
     def _max_tokens_for(self, response_detail: ResponseDetail) -> int:

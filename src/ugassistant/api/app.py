@@ -531,6 +531,7 @@ def create_app(
         max_tokens=settings.llm_max_tokens,
         complete_max_tokens=settings.llm_complete_max_tokens,
         temperature=settings.llm_temperature,
+        repeat_penalty=settings.llm_repeat_penalty,
         on_status=on_conversation_status,
     )
 

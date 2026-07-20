@@ -28,7 +28,7 @@ La aplicacion incluye:
   automatica de idioma/voz y repeticion de la frase reconocida.
 - Turno por palabra de activacion local: `hola` inicia el turno en espanol y
   `salut` lo inicia en frances; despues escucha la pregunta y la procesa localmente.
-- LLM local mediante Ollama y el modelo bloqueado `qwen3:4b-instruct`, con
+- LLM local mediante Ollama y el modelo bloqueado `gemma3:4b`, con
   historial limitado, una unica inferencia pesada simultanea y eleccion verbal
   entre respuesta corta o completa antes de cada consulta.
 - Sintesis de texto local con Piper y las voces bloqueadas
@@ -63,7 +63,7 @@ Cuando no queda ninguno, la siguiente cuenta vuelve a ser el temporizador 1.
 
 Los runtimes de Piper y whisper.cpp, las voces TTS en castellano y frances y
 `ggml-base.bin` ya estan instalados para desarrollo en Windows. Ollama y
-`qwen3:4b-instruct` se instalan deliberadamente mediante un paso explicito.
+`gemma3:4b` se instala deliberadamente mediante un paso explicito.
 
 El proyecto toma como referencia la experiencia de BillAI Bass, sustituyendo
 el pez y los componentes mecanicos por el avatar de pantalla. La arquitectura
@@ -120,14 +120,21 @@ el funcionamiento.
 
 ### Perfiles de respuesta local
 
-La respuesta `corta` usa `qwen3:4b-instruct` con razonamiento desactivado y
-2.048 tokens de contexto para conservar una interaccion agil. La respuesta
-`completa` anuncia que necesitara algo mas de tiempo, activa el razonamiento
-del modelo y usa 4.096 tokens de contexto. El razonamiento interno de Ollama no
-se muestra, no se reproduce y no se conserva en el historial.
+La respuesta `corta` usa `gemma3:4b` con 2.048 tokens de contexto, hasta tres
+frases y 384 tokens de salida para conservar una interaccion agil. La respuesta
+`completa` anuncia que necesitara algo mas de tiempo y usa 4.096 tokens de
+contexto con hasta 2.048 tokens de salida. Gemma no usa un modo de razonamiento
+oculto en UGAssistant: el estado visual de pensamiento representa la inferencia
+local, no una garantia de exactitud factual.
+
+Los dos perfiles usan temperatura `0.2` y penalizacion de repeticion `1.08`.
+El prompt pide omitir los detalles inciertos antes que rellenarlos e impide
+presentar una respuesta como autentica, tradicional, correcta, segura u oficial
+sin poder sostenerlo. Esto reduce alucinaciones, pero un modelo local no puede
+verificar hechos actuales ni sustituir fuentes especializadas.
 
 La aplicacion ya no recorta el texto final por numero de caracteres. El limite
-de salida de 1.536 tokens del perfil completo es una proteccion tecnica de
+de salida de 2.048 tokens del perfil completo es una proteccion tecnica de
 memoria y tiempo en Raspberry Pi; el modelo debe cerrar la respuesta de forma
 natural. Puede ajustarse en `config/app.yaml` si el hardware final lo permite.
 
@@ -190,9 +197,8 @@ segundo flujo de audio.
 Con microfono y altavoz activos, el modo normal queda esperando `hola` o
 `salut`. Tras reconocerlos, saluda en espanol o frances, espera una segunda
 frase y pregunta si se desea una respuesta `corta` o `completa` antes de enviar
-la consulta a `qwen3:4b-instruct` por la API local de Ollama. Si se elige una
-respuesta completa, antes anuncia que tardara un poco mas y activa el modo de
-razonamiento local. La respuesta se
+la consulta a `gemma3:4b` por la API local de Ollama. Si se elige una
+respuesta completa, antes anuncia que tardara un poco mas. La respuesta se
 reproduce con DaveFX o Tom segun el idioma transcrito. Si la
 primera frase no contiene una de esas palabras, se descarta. Cada captura se
 cierra tras dos segundos de silencio y vuelve a reposo si no hay activacion o
@@ -446,7 +452,7 @@ $env:PYTHONPATH = "src"
 ```
 
 La comprobacion informa sobre plataforma, Python, Ollama, dispositivos de
-camara y audio, OpenCV, whisper.cpp, Ollama, el modelo `qwen3:4b-instruct` instalado y
+camara y audio, OpenCV, whisper.cpp, Ollama, el modelo `gemma3:4b` instalado y
 espacio libre.
 
 ## Pruebas
@@ -462,7 +468,7 @@ Las pruebas unitarias usan adaptadores simulados y no necesitan abrir la camara 
 
 `config/models.lock.yaml` conserva exactamente:
 
-- LLM: Ollama `qwen3:4b-instruct`.
+- LLM: Ollama `gemma3:4b`.
 - STT: whisper.cpp `ggml-base.bin`.
 - TTS espanol: Piper `es_ES-davefx-medium.onnx`.
 - TTS frances: Piper `fr_FR-tom-medium.onnx`.
@@ -473,7 +479,7 @@ Las pruebas unitarias usan adaptadores simulados y no necesitan abrir la camara 
 Los tres modelos de vision, las voces TTS DaveFX y Tom y el modelo STT estan
 descargados y verificados. El modelo LLM se instala explicitamente con
 `scripts/download_models.py --model llm`; su contenido y digest se gestionan
-localmente por Ollama bajo la etiqueta bloqueada `qwen3:4b-instruct`.
+localmente por Ollama bajo la etiqueta bloqueada `gemma3:4b`.
 `config/runtimes.lock.yaml` fija Piper `2023.11.14-2` y whisper.cpp `v1.8.1`
 para Windows AMD64 y Linux ARM64; no se sustituye ningun modelo.
 
@@ -504,3 +510,9 @@ licencia o una compatible.
 Consulta el texto legal completo en [LICENSE](LICENSE). Los modelos, runtimes,
 bibliotecas y demas recursos de terceros mantienen sus propias licencias y no
 quedan relicenciados por esta declaracion.
+
+El LLM Gemma 3 se descarga por separado y esta sujeto a los [Gemma Terms of
+Use](https://ai.google.dev/gemma/terms) y a su [politica de usos
+prohibidos](https://ai.google.dev/gemma/prohibited_use_policy). Sus pesos no se
+incluyen ni se redistribuyen con este repositorio. Consulta tambien
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

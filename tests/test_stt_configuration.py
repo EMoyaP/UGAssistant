@@ -53,7 +53,7 @@ class STTConfigurationTests(unittest.TestCase):
             for model in load_model_lock().get("models", [])
         }
 
-        self.assertEqual(settings.llm_model, "qwen3:4b-instruct")
+        self.assertEqual(settings.llm_model, "gemma3:4b")
         self.assertEqual(settings.llm_base_url, "http://127.0.0.1:11434")
         self.assertGreater(
             settings.llm_complete_context_tokens,
@@ -65,11 +65,14 @@ class STTConfigurationTests(unittest.TestCase):
         )
         self.assertEqual(settings.llm_short_context_tokens, 2048)
         self.assertEqual(settings.llm_complete_context_tokens, 4096)
-        self.assertEqual(settings.llm_complete_max_tokens, 1536)
+        self.assertEqual(settings.llm_max_tokens, 384)
+        self.assertEqual(settings.llm_complete_max_tokens, 2048)
+        self.assertEqual(settings.llm_temperature, 0.2)
+        self.assertEqual(settings.llm_repeat_penalty, 1.08)
         self.assertEqual(settings.wake_spanish_words, ("hola",))
         self.assertEqual(settings.wake_french_words, ("salut",))
         self.assertEqual(settings.stt_silence_seconds, 2.0)
-        self.assertEqual(models["llm"]["version_or_tag"], "qwen3:4b-instruct")
+        self.assertEqual(models["llm"]["version_or_tag"], "gemma3:4b")
 
 
 if __name__ == "__main__":
