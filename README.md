@@ -228,50 +228,6 @@ solo por el indice variable de Windows o ALSA. Si el dispositivo guardado no
 esta conectado, UGAssistant selecciona ninguno en vez de cambiar a otro. El
 archivo es local, no contiene audio o video y no se envia fuera del equipo.
 
-## Spotify opcional
-
-Spotify es la unica integracion externa opcional. La voz, vision, LLM y TTS
-siguen ejecutandose en local. Para activarlo, crea una aplicacion personal en
-el panel de Spotify for Developers, copia su `Client ID` en Configuracion y
-registra exactamente esta URI de retorno:
-
-```text
-http://127.0.0.1:8000/api/spotify/callback
-```
-
-Pulsa `Conectar` para abrir la autorizacion oficial de Spotify. Tras esta
-actualizacion, desconecta y conecta Spotify una vez para conceder los permisos
-del reproductor local. UGAssistant usa
-OAuth 2.0 con PKCE: no lee ni guarda cookies del navegador. El token renovable
-se conserva solo en `data/spotify.tokens.json`, cifrado con DPAPI en Windows y
-con permisos locales restrictivos en Raspberry Pi; queda fuera del control de
-versiones. `Desconectar` borra ese token local.
-
-Con Spotify conectado y un dispositivo Spotify activo, se puede decir `hola,
-pon musica` para que pregunte que se desea escuchar, o `hola, reproduce <tema>`
-para buscarlo directamente. Tambien se entiende `hola, reproduce el ultimo
-disco de Shakira`: UGAssistant consulta los albumes oficiales del artista y
-reproduce el mas reciente disponible en Spotify. La frase adicional
-`ordenado por popularidad` se ignora en ese caso porque un album se reproduce
-en el orden fijado por su autor. `hola, deten la reproduccion` y el gesto de
-cremallera pausan Spotify. El control remoto de reproduccion requiere Spotify
-Premium; el lateral muestra la portada original enlazada a Spotify, la pista y
-ofrece pausa, reanudar, anterior y siguiente cuando Spotify permite esos
-controles. Tambien se admiten `hola, pausar`, `hola, reanudar`, `hola,
-siguiente`, `hola, anterior`, `hola, subir volumen` y `hola, bajar volumen`.
-
-La salida de altavoz configurada en UGAssistant se aplica al audio de Piper.
-Spotify reproduce desde su cliente o dispositivo Spotify Connect activo, por lo
-que el destino de su musica se elige en Spotify, Chromium o en el sistema
-operativo. En Raspberry Pi el navegador de quiosco usa la salida de audio
-predeterminada de ALSA.
-
-UGAssistant crea un reproductor Spotify Connect propio dentro de Chromium con
-el Web Playback SDK oficial. Esto evita abrir una pestaña o aplicacion de
-Spotify aparte en navegadores compatibles. Requiere Spotify Premium y, por la
-politica de reproduccion automatica del navegador, puede requerir pulsar una vez
-`Activar reproductor local` en Configuracion al iniciar la sesion.
-
 ## Dispositivos de audio
 
 La aplicacion enumera entradas y salidas con `sounddevice` y PortAudio. En

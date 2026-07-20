@@ -15,18 +15,6 @@ El asistente debe:
 * Funcionar sin servicios de IA en la nube.
 * No enviar audio, vídeo, texto ni telemetría a terceros.
 
-## Excepcion limitada: Spotify
-
-La prohibicion general de servicios de terceros tiene una excepcion: Spotify se permite exclusivamente como fuente de reproduccion musical cuando la persona usuaria la active de forma expresa. Esta excepcion no se aplica a los modelos ni a la conversacion del asistente, que siguen siendo locales.
-
-* La integracion debe usar la API oficial de Spotify y OAuth 2.0 con PKCE; nunca automatizar Chromium ni leer, copiar o almacenar cookies de sesion.
-* La autorizacion debe abrir la pagina oficial de Spotify y requerir la aprobacion explicita de la persona usuaria.
-* Solo se enviara a Spotify lo imprescindible para la reproduccion: consulta musical, comandos de control y los tokens OAuth necesarios.
-* Los tokens se guardaran solo en el dispositivo, protegidos y fuera del control de versiones. No se registraran en logs ni se incluiran en diagnosticos.
-* La funcion debe poder desactivarse, revocar la conexion y borrar sus credenciales locales desde la configuracion.
-* Spotify sera un adaptador de infraestructura opcional. El LLM, STT, TTS, vision y toda la conversacion seguiran siendo locales.
-* La interfaz debe identificar claramente el contenido y los metadatos proporcionados por Spotify y respetar sus requisitos de marca y reproduccion.
-
 ## Hardware final objetivo
 
 * Raspberry Pi 5.

@@ -50,7 +50,6 @@ class UserPreferences:
     speech_rate: float = 0.85
     spanish_wake_word: str = "hola"
     french_wake_word: str = "salut"
-    spotify_client_id: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -86,9 +85,6 @@ class UserPreferences:
                 "spanish_wake_word": self.spanish_wake_word,
                 "french_wake_word": self.french_wake_word,
             },
-            "spotify": {
-                "client_id": self.spotify_client_id,
-            },
         }
 
     @classmethod
@@ -99,7 +95,6 @@ class UserPreferences:
         audio = _mapping(value.get("audio"))
         tts = _mapping(value.get("tts"))
         assistant = _mapping(value.get("assistant"))
-        spotify = _mapping(value.get("spotify"))
         volume = min(max(float(audio.get("output_volume", 1.0)), 0.0), 1.0)
         voice_id = str(tts.get("voice_id", "es_ES-davefx-medium")).strip()
         language = str(tts.get("language", "es_ES")).strip()
@@ -123,7 +118,6 @@ class UserPreferences:
             french_wake_word=_clean_text(
                 assistant.get("french_wake_word", "salut"), "salut"
             ),
-            spotify_client_id=_clean_optional_text(spotify.get("client_id")),
         )
 
 
@@ -178,7 +172,3 @@ def _normalize(value: str) -> str:
 def _clean_text(value: object, fallback: str, *, maximum: int = 40) -> str:
     cleaned = " ".join(str(value).split())[:maximum]
     return cleaned or fallback
-
-
-def _clean_optional_text(value: object, *, maximum: int = 128) -> str:
-    return "".join(str(value).split())[:maximum]

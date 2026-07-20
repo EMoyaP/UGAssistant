@@ -155,10 +155,8 @@ class CameraService:
     async def set_activity(
         self,
         state: AssistantState,
-        *,
-        music_playing: bool = False,
     ) -> None:
-        if music_playing or state in {
+        if state in {
             AssistantState.LISTENING,
             AssistantState.SPEAKING,
         }:

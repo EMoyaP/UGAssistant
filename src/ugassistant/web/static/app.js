@@ -38,25 +38,6 @@ const wakeFrenchInput = document.querySelector("#wakeFrenchInput");
 const saveProfileButton = document.querySelector("#saveProfileButton");
 const conversationTurns = document.querySelector("#conversationTurns");
 const timerStack = document.querySelector("#timerStack");
-const spotifyPanel = document.querySelector("#spotifyPanel");
-const spotifyTrackTitle = document.querySelector("#spotifyTrackTitle");
-const spotifyTrackArtist = document.querySelector("#spotifyTrackArtist");
-const spotifyCoverLink = document.querySelector("#spotifyCoverLink");
-const spotifyCover = document.querySelector("#spotifyCover");
-const spotifyPlaybackState = document.querySelector("#spotifyPlaybackState");
-const spotifyDeviceName = document.querySelector("#spotifyDeviceName");
-const spotifyVolume = document.querySelector("#spotifyVolume");
-const spotifyPreviousButton = document.querySelector("#spotifyPreviousButton");
-const spotifyToggleButton = document.querySelector("#spotifyToggleButton");
-const spotifyNextButton = document.querySelector("#spotifyNextButton");
-const spotifyStopButton = document.querySelector("#spotifyStopButton");
-const spotifyClientIdInput = document.querySelector("#spotifyClientIdInput");
-const spotifySettingStatus = document.querySelector("#spotifySettingStatus");
-const spotifySaveButton = document.querySelector("#spotifySaveButton");
-const spotifyConnectButton = document.querySelector("#spotifyConnectButton");
-const spotifyDisconnectButton = document.querySelector("#spotifyDisconnectButton");
-const spotifyActivatePlayerButton = document.querySelector("#spotifyActivatePlayerButton");
-const spotifyLocalPlayerStatus = document.querySelector("#spotifyLocalPlayerStatus");
 
 const IDLE_BORED_AFTER_MS = 35000;
 const IDLE_SLEEP_AFTER_MS = 47000;
@@ -77,12 +58,6 @@ let ttsInventorySignature = "";
 let lipSyncFrame = null;
 let assistantProfile = { spanish_wake_word: "hola", french_wake_word: "salut" };
 let renderedTurnKey = "";
-let spotifyStatus = { configured: false, connected: false, playback: null };
-let spotifyPollTimer = null;
-let spotifyWebPlayer = null;
-let spotifyWebPlayerLoading = false;
-let spotifyWebPlayerActivated = false;
-let spotifyWebPlayerDeviceId = "";
 let activeTimers = [];
 
 function stopLipSync() {
@@ -254,270 +229,6 @@ async function saveAssistantProfile() {
     console.error(error);
   } finally {
     saveProfileButton.disabled = false;
-  }
-}
-
-function applySpotifyStatus(payload) {
-  spotifyStatus = payload;
-  const playback = payload.playback || null;
-  const isPlaying = Boolean(playback?.is_playing);
-  // The player and music expression are reserved for active playback.
-  shell.dataset.spotify = isPlaying ? "true" : "false";
-  shell.dataset.spotifyPlaying = isPlaying ? "true" : "false";
-  spotifyTrackTitle.textContent = playback?.title || "Sin reproduccion";
-  spotifyTrackArtist.textContent = playback?.artists || "Di que musica quieres escuchar";
-  const hasCover = Boolean(playback?.album_art_url);
-  spotifyCoverLink.hidden = !hasCover;
-  if (hasCover) {
-    spotifyCover.src = playback.album_art_url;
-    spotifyCover.alt = `Portada de ${playback.album || playback.title}`;
-    spotifyCoverLink.href = playback.spotify_url || "https://open.spotify.com";
-  } else {
-    spotifyCover.removeAttribute("src");
-  }
-  spotifyPlaybackState.textContent = isPlaying ? "Reproduciendo" : "Listo para reproducir";
-  spotifyDeviceName.textContent = playback?.device_name || "Spotify conectado";
-  spotifyVolume.textContent = playback?.supports_volume && Number.isInteger(playback.volume_percent)
-    ? `Volumen de Spotify: ${playback.volume_percent}%`
-    : "";
-  spotifyToggleButton.innerHTML = isPlaying ? "&#10074;&#10074;" : "&#9654;";
-  spotifyToggleButton.setAttribute("aria-label", isPlaying ? "Pausar" : "Reanudar");
-  spotifyToggleButton.title = isPlaying ? "Pausar" : "Reanudar";
-  const controlsEnabled = Boolean(payload.connected && playback);
-  [spotifyPreviousButton, spotifyToggleButton, spotifyNextButton, spotifyStopButton]
-    .forEach((button) => { button.disabled = !controlsEnabled; });
-  spotifySettingStatus.textContent = payload.connected
-    ? "Conectado"
-    : payload.configured ? "Pendiente de conexion" : "Sin configurar";
-  spotifyConnectButton.disabled = !payload.configured || payload.connected;
-  spotifyDisconnectButton.disabled = !payload.connected;
-  spotifyActivatePlayerButton.disabled = !payload.connected;
-  if (payload.connected) {
-    ensureSpotifyWebPlayer();
-  } else {
-    disconnectSpotifyWebPlayer();
-  }
-  syncSpotifyPolling(isPlaying);
-}
-
-function setSpotifyLocalPlayerStatus(message) {
-  spotifyLocalPlayerStatus.textContent = message;
-}
-
-function ensureSpotifyWebPlayer() {
-  if (!spotifyStatus.connected || spotifyWebPlayer || spotifyWebPlayerLoading) return;
-  spotifyWebPlayerLoading = true;
-  setSpotifyLocalPlayerStatus("Preparando reproductor local...");
-  const startPlayer = () => {
-    if (!window.Spotify || spotifyWebPlayer) {
-      spotifyWebPlayerLoading = false;
-      return;
-    }
-    spotifyWebPlayer = new window.Spotify.Player({
-      name: "UGAssistant",
-      getOAuthToken: async (callback) => {
-        try {
-          const response = await fetch("/api/spotify/web-player/token");
-          const payload = await response.json();
-          if (!response.ok) throw new Error(payload.detail || "Spotify token failed");
-          callback(payload.access_token);
-        } catch (error) {
-          callback("");
-          setSpotifyLocalPlayerStatus("No se pudo renovar el acceso de Spotify.");
-          console.error("spotify_web_player_token_failed", error);
-        }
-      },
-      volume: 1,
-      enableMediaSession: true,
-    });
-    spotifyWebPlayer.addListener("ready", ({ device_id: deviceId }) => {
-      spotifyWebPlayerDeviceId = deviceId;
-      noteSpotifyWebPlayerAvailable();
-    });
-    spotifyWebPlayer.addListener("not_ready", () => {
-      spotifyWebPlayerDeviceId = "";
-      setSpotifyLocalPlayerStatus("El reproductor local no esta disponible.");
-    });
-    spotifyWebPlayer.addListener("player_state_changed", () => {
-      loadSpotifyStatus().catch((error) => console.error("spotify_web_player_state_failed", error));
-    });
-    spotifyWebPlayer.addListener("initialization_error", ({ message }) => {
-      setSpotifyLocalPlayerStatus("Este navegador no admite el reproductor local.");
-      console.error("spotify_web_player_initialization_failed", message);
-    });
-    spotifyWebPlayer.addListener("authentication_error", ({ message }) => {
-      setSpotifyLocalPlayerStatus("Desconecta y conecta Spotify para actualizar los permisos.");
-      console.error("spotify_web_player_authentication_failed", message);
-    });
-    spotifyWebPlayer.addListener("account_error", ({ message }) => {
-      setSpotifyLocalPlayerStatus("El reproductor local requiere Spotify Premium.");
-      console.error("spotify_web_player_account_failed", message);
-    });
-    spotifyWebPlayer.connect().then((connected) => {
-      spotifyWebPlayerLoading = false;
-      if (!connected) setSpotifyLocalPlayerStatus("No se pudo iniciar el reproductor local.");
-    }).catch((error) => {
-      spotifyWebPlayerLoading = false;
-      setSpotifyLocalPlayerStatus("No se pudo iniciar el reproductor local.");
-      console.error("spotify_web_player_connect_failed", error);
-    });
-  };
-  if (window.Spotify) {
-    startPlayer();
-    return;
-  }
-  window.onSpotifyWebPlaybackSDKReady = startPlayer;
-  const script = document.createElement("script");
-  script.src = "https://sdk.scdn.co/spotify-player.js";
-  script.async = true;
-  script.onerror = () => {
-    spotifyWebPlayerLoading = false;
-    setSpotifyLocalPlayerStatus("No se pudo cargar el reproductor local de Spotify.");
-  };
-  document.head.appendChild(script);
-}
-
-async function noteSpotifyWebPlayerAvailable() {
-  try {
-    const response = await fetch("/api/spotify/web-player/pending", { method: "POST" });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || "Spotify local player pending failed");
-    setSpotifyLocalPlayerStatus("Pulsa Activar reproductor local para permitir el audio.");
-  } catch (error) {
-    setSpotifyLocalPlayerStatus("No se pudo preparar el reproductor local.");
-    console.error("spotify_web_player_pending_failed", error);
-  }
-}
-
-async function registerSpotifyWebPlayer(deviceId) {
-  try {
-    const response = await fetch("/api/spotify/web-player/device", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_id: deviceId }),
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || "Spotify device registration failed");
-    setSpotifyLocalPlayerStatus("Reproductor local listo.");
-    applySpotifyStatus(payload);
-    return true;
-  } catch (error) {
-    setSpotifyLocalPlayerStatus("No se pudo registrar el reproductor local.");
-    console.error("spotify_web_player_registration_failed", error);
-    return false;
-  }
-}
-
-function activateSpotifyWebPlayer() {
-  if (!spotifyWebPlayer) {
-    ensureSpotifyWebPlayer();
-    return;
-  }
-  if (!spotifyWebPlayerDeviceId) {
-    setSpotifyLocalPlayerStatus("El reproductor local aun se esta preparando.");
-    return;
-  }
-  spotifyWebPlayer.activateElement().then(async () => {
-    if (await registerSpotifyWebPlayer(spotifyWebPlayerDeviceId)) {
-      spotifyWebPlayerActivated = true;
-      setSpotifyLocalPlayerStatus("Reproductor local activado.");
-    }
-  }).catch((error) => {
-    setSpotifyLocalPlayerStatus("Pulsa de nuevo para permitir el audio de Spotify.");
-    console.error("spotify_web_player_activation_failed", error);
-  });
-}
-
-function disconnectSpotifyWebPlayer() {
-  if (spotifyWebPlayer) spotifyWebPlayer.disconnect();
-  spotifyWebPlayer = null;
-  spotifyWebPlayerLoading = false;
-  spotifyWebPlayerActivated = false;
-  spotifyWebPlayerDeviceId = "";
-  setSpotifyLocalPlayerStatus("El reproductor local se prepara al conectar Spotify.");
-}
-
-function syncSpotifyPolling(isPlaying) {
-  if (!isPlaying) {
-    if (spotifyPollTimer !== null) {
-      window.clearInterval(spotifyPollTimer);
-      spotifyPollTimer = null;
-    }
-    return;
-  }
-  if (spotifyPollTimer !== null) return;
-  spotifyPollTimer = window.setInterval(() => {
-    loadSpotifyStatus().catch((error) => console.error("spotify_status_poll_failed", error));
-  }, 2500);
-}
-
-async function loadSpotifyStatus() {
-  const response = await fetch("/api/spotify");
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.detail || "Spotify status failed");
-  applySpotifyStatus(payload);
-}
-
-async function loadSpotifyConfiguration() {
-  const response = await fetch("/api/spotify/config");
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.detail || "Spotify configuration request failed");
-  spotifyClientIdInput.value = payload.client_id || "";
-}
-
-async function saveSpotifyConfiguration() {
-  spotifySaveButton.disabled = true;
-  try {
-    const response = await fetch("/api/spotify/config", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: spotifyClientIdInput.value }),
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || "Spotify configuration failed");
-    applySpotifyStatus(payload);
-  } catch (error) {
-    spotifySettingStatus.textContent = "Error de configuracion";
-    console.error(error);
-  } finally {
-    spotifySaveButton.disabled = false;
-  }
-}
-
-async function connectSpotify() {
-  try {
-    const response = await fetch("/api/spotify/connect", { method: "POST" });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || "Spotify connection failed");
-    window.open(payload.authorization_url, "_blank", "noopener");
-  } catch (error) {
-    spotifySettingStatus.textContent = "Guarda el Client ID primero";
-    console.error(error);
-  }
-}
-
-async function controlSpotify(action) {
-  try {
-    const response = await fetch(`/api/spotify/control/${action}`, { method: "POST" });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || "Spotify control failed");
-    applySpotifyStatus(payload);
-  } catch (error) {
-    spotifySettingStatus.textContent = "Error de reproduccion";
-    console.error(error);
-  }
-}
-
-async function disconnectSpotify() {
-  try {
-    const response = await fetch("/api/spotify/disconnect", { method: "POST" });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || "Spotify disconnect failed");
-    disconnectSpotifyWebPlayer();
-    applySpotifyStatus(payload);
-  } catch (error) {
-    spotifySettingStatus.textContent = "Error al desconectar";
-    console.error(error);
   }
 }
 
@@ -1150,13 +861,6 @@ function connectAssistantSocket() {
   socket.addEventListener("close", () => window.setTimeout(connectAssistantSocket, 1500));
 }
 
-function connectSpotifySocket() {
-  const scheme = window.location.protocol === "https:" ? "wss" : "ws";
-  const socket = new WebSocket(`${scheme}://${window.location.host}/ws/spotify`);
-  socket.addEventListener("message", (event) => applySpotifyStatus(JSON.parse(event.data)));
-  socket.addEventListener("close", () => window.setTimeout(connectSpotifySocket, 1500));
-}
-
 function updateIdleCycle() {
   const state = shell.dataset.state;
   if (state !== "IDLE" && state !== "SLEEPING") {
@@ -1267,22 +971,9 @@ settingsDialog.addEventListener("click", (event) => {
 
 shutdownButton.addEventListener("click", shutdownSystem);
 saveProfileButton.addEventListener("click", saveAssistantProfile);
-spotifySaveButton.addEventListener("click", saveSpotifyConfiguration);
-spotifyConnectButton.addEventListener("click", connectSpotify);
-spotifyDisconnectButton.addEventListener("click", disconnectSpotify);
-spotifyActivatePlayerButton.addEventListener("click", activateSpotifyWebPlayer);
-spotifyPreviousButton.addEventListener("click", () => controlSpotify("previous"));
-spotifyToggleButton.addEventListener("click", () => {
-  controlSpotify(spotifyStatus.playback?.is_playing ? "pause" : "resume");
-});
-spotifyNextButton.addEventListener("click", () => controlSpotify("next"));
-spotifyStopButton.addEventListener("click", () => controlSpotify("pause"));
 
 window.addEventListener("pointermove", handlePointerMove, { passive: true });
-window.addEventListener("pointerdown", () => {
-  registerActivity();
-  if (!spotifyWebPlayerActivated) activateSpotifyWebPlayer();
-}, { passive: true });
+window.addEventListener("pointerdown", registerActivity, { passive: true });
 window.addEventListener("keydown", registerActivity);
 stage.addEventListener("touchstart", registerActivity, { passive: true });
 
@@ -1304,8 +995,6 @@ loadTTSStatus().catch((error) => {
   console.error(error);
 });
 loadAssistantProfile().catch((error) => console.error(error));
-loadSpotifyConfiguration().catch((error) => console.error(error));
-loadSpotifyStatus().catch((error) => console.error(error));
 updateLocalClock();
 window.setInterval(updateLocalClock, 1000);
 window.setInterval(() => renderTimers(), 1000);
@@ -1314,5 +1003,4 @@ connectCameraSocket();
 connectAudioSocket();
 connectTTSSocket();
 connectAssistantSocket();
-connectSpotifySocket();
 window.setInterval(updateIdleCycle, 1000);

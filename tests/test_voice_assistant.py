@@ -8,21 +8,13 @@ import unittest
 from ugassistant.adapters.simulated import (
     SimulatedAudioAdapter,
     SimulatedLLMAdapter,
-    SimulatedSpotifyAdapter,
     SimulatedSTTAdapter,
     SimulatedTTSAdapter,
-)
-from ugassistant.domain.spotify import (
-    SpotifyError,
-    SpotifyLocalPlayerNotActivatedError,
-    SpotifyNotConfiguredError,
-    SpotifyNotConnectedError,
 )
 from ugassistant.services.audio import AudioDeviceService, AudioStatus
 from ugassistant.services.conversation import ConversationService
 from ugassistant.services.recognition import VoiceRecognitionService
 from ugassistant.services.speech import SpeechService
-from ugassistant.services.spotify import SpotifyService
 from ugassistant.services.timers import TimerService
 from ugassistant.services.voice_assistant import VoiceAssistantService
 
@@ -147,32 +139,6 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service._response_detail("reponse courte"), "short")
         self.assertEqual(service._response_detail("respuesta completa"), "complete")
         self.assertEqual(
-            service._music_request("Pon musica de Queen"),
-            ("play", "Queen", True),
-        )
-        self.assertEqual(
-            service._music_request("Deten la reproduccion"),
-            ("stop", "", False),
-        )
-        self.assertEqual(service._music_request("Pausar"), ("pause", "", False))
-        self.assertEqual(service._music_request("Reanuda Spotify"), ("resume", "", False))
-        self.assertEqual(service._music_request("Pista siguiente"), ("next", "", False))
-        self.assertEqual(service._music_request("Pista anterior"), ("previous", "", False))
-        self.assertEqual(service._music_request("Sube el volumen"), ("volume_up", "", False))
-        self.assertEqual(service._music_request("Baja el volumen"), ("volume_down", "", False))
-        self.assertEqual(
-            service._music_request("Reproduce Madonna"),
-            ("play", "Madonna", True),
-        )
-        self.assertEqual(
-            service._music_request("... reproduce Madonna."),
-            ("play", "Madonna.", True),
-        )
-        self.assertEqual(
-            service._music_request("Reproduce la cancion Like a Prayer"),
-            ("play", "Like a Prayer", False),
-        )
-        self.assertEqual(
             service._timer_command("Temporizador de 10 minutos"),
             ("create", 600),
         )
@@ -187,16 +153,6 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             service._parse_timer_duration("1 hora y 30 minutos"),
             5400,
-        )
-        self.assertEqual(
-            service._music_request(
-                "Reproduce el ultimo disco de Shakira ordenado por popularidad"
-            ),
-            ("play_latest_album", "Shakira", False),
-        )
-        self.assertEqual(
-            service._music_request("Joue le dernier album de Shakira"),
-            ("play_latest_album", "Shakira", False),
         )
 
     async def test_reports_waiting_for_wake_word_when_monitoring_is_enabled(self) -> None:
@@ -228,6 +184,40 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(service.status.detail, "monitoring_wake_word")
         await audio.shutdown()
+
+    async def test_empty_whisper_result_returns_to_idle_flow(self) -> None:
+        audio = AudioDeviceService(SimulatedAudioAdapter())
+        speech = SpeechService(
+            SimulatedTTSAdapter(),
+            audio,
+            default_voice_id="es_ES-davefx-medium",
+        )
+        recognition = VoiceRecognitionService(
+            SimulatedSTTAdapter(),
+            audio,
+            speech,
+            inference_lock=asyncio.Lock(),
+        )
+
+        async def no_text(**_kwargs: object) -> object:
+            raise RuntimeError("whisper.cpp did not recognize any text")
+
+        recognition.recognize_once = no_text  # type: ignore[method-assign]
+        service = VoiceAssistantService(
+            audio,
+            recognition,
+            speech,
+            ConversationService(
+                SimulatedLLMAdapter(),
+                inference_lock=asyncio.Lock(),
+            ),
+        )
+
+        await service._handle_wake_word()
+
+        self.assertFalse(service.status.busy)
+        self.assertEqual(service.status.phase, "waiting_for_wake_word")
+        self.assertEqual(service.status.detail, "no_speech_recognized")
 
     async def test_interruption_clears_the_completed_turn(self) -> None:
         audio = AudioDeviceService(SimulatedAudioAdapter())
@@ -265,39 +255,6 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(service.status.busy)
         self.assertEqual(service.status.question, "")
         self.assertEqual(service.status.answer, "")
-
-    async def test_wake_word_pauses_active_spotify_playback(self) -> None:
-        audio = AudioDeviceService(SimulatedAudioAdapter())
-        speech = SpeechService(
-            SimulatedTTSAdapter(),
-            audio,
-            default_voice_id="es_ES-davefx-medium",
-        )
-        spotify_adapter = SimulatedSpotifyAdapter()
-        spotify = SpotifyService(spotify_adapter)
-        spotify.configure("spotify-client-id")
-        await spotify.complete_authorization("code", "state")
-        await spotify.play_query("Madonna")
-        service = VoiceAssistantService(
-            audio,
-            VoiceRecognitionService(
-                SimulatedSTTAdapter(),
-                audio,
-                speech,
-                inference_lock=asyncio.Lock(),
-            ),
-            speech,
-            ConversationService(
-                SimulatedLLMAdapter(),
-                inference_lock=asyncio.Lock(),
-            ),
-            spotify_service=spotify,
-        )
-
-        await service._stop_spotify_for_wake_word()
-
-        self.assertEqual(spotify_adapter.controls, ["pause"])
-        self.assertFalse(spotify.status.playback is not None and spotify.status.playback.is_playing)
 
     async def test_creates_a_timer_from_the_direct_voice_command(self) -> None:
         audio = AudioDeviceService(SimulatedAudioAdapter())
@@ -345,32 +302,6 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         await timers.shutdown()
         await audio.shutdown()
-
-    def test_explains_the_actual_spotify_playback_problem(self) -> None:
-        self.assertIn(
-            "Configura Spotify",
-            VoiceAssistantService._spotify_error_response(
-                SpotifyNotConfiguredError("missing client id"), "es_ES"
-            ),
-        )
-        self.assertIn(
-            "debes conectarlo",
-            VoiceAssistantService._spotify_error_response(
-                SpotifyNotConnectedError("missing token"), "es_ES"
-            ),
-        )
-        self.assertIn(
-            "reproductor activo",
-            VoiceAssistantService._spotify_error_response(
-                SpotifyError("no active device"), "es_ES"
-            ),
-        )
-        self.assertIn(
-            "Activar reproductor local",
-            VoiceAssistantService._spotify_error_response(
-                SpotifyLocalPlayerNotActivatedError("activate player"), "es_ES"
-            ),
-        )
 
     async def _wait_for(self, predicate: Callable[[], bool], timeout: float = 1.0) -> None:
         loop = asyncio.get_running_loop()
