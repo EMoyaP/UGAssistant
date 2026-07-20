@@ -125,6 +125,9 @@ class SimulatedCameraAdapter:
         self._person_detected = person_detected
         self._opened = False
         self._device_index: int | None = 0
+        self.hand_detection_enabled = True
+        self.face_detection_enabled = True
+        self.preview_enabled = False
 
     async def list_devices(self) -> list[CameraDevice]:
         return [CameraDevice(device_index=0, name="Simulated camera")]
@@ -177,6 +180,15 @@ class SimulatedCameraAdapter:
             face_landmarks=face_landmarks,
             detail="simulated",
         )
+
+    async def set_hand_detection_enabled(self, enabled: bool) -> None:
+        self.hand_detection_enabled = enabled
+
+    async def set_face_detection_enabled(self, enabled: bool) -> None:
+        self.face_detection_enabled = enabled
+
+    async def set_preview_enabled(self, enabled: bool) -> None:
+        self.preview_enabled = enabled
 
 
 class SimulatedAudioAdapter:

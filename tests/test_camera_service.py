@@ -4,7 +4,12 @@ import asyncio
 import unittest
 
 from ugassistant.adapters.simulated import SimulatedCameraAdapter
-from ugassistant.services.camera import CameraService, CameraStatus
+from ugassistant.domain.state_machine import AssistantState
+from ugassistant.services.camera import (
+    CameraActivityProfile,
+    CameraService,
+    CameraStatus,
+)
 
 
 class CameraServiceTests(unittest.IsolatedAsyncioTestCase):
@@ -72,3 +77,47 @@ class CameraServiceTests(unittest.IsolatedAsyncioTestCase):
         ).to_dict()
 
         self.assertEqual(payload["finger_count"], 0)
+
+    async def test_adapts_vision_work_to_assistant_activity(self) -> None:
+        adapter = SimulatedCameraAdapter()
+        service = CameraService(
+            adapter,
+            idle_fps=1,
+            person_detected_fps=2,
+            processing_fps=1,
+            gesture_fps=5,
+        )
+
+        await service.set_activity(AssistantState.PERSON_DETECTED)
+        self.assertEqual(service.perception_profile, CameraActivityProfile.PERSON_DETECTED)
+        self.assertEqual(service.target_fps, 2)
+        self.assertFalse(adapter.hand_detection_enabled)
+        self.assertTrue(adapter.face_detection_enabled)
+
+        await service.set_activity(AssistantState.TRANSCRIBING)
+        self.assertEqual(service.perception_profile, CameraActivityProfile.PROCESSING)
+        self.assertEqual(service.target_fps, 1)
+        self.assertFalse(adapter.hand_detection_enabled)
+        self.assertFalse(adapter.face_detection_enabled)
+
+        await service.set_activity(AssistantState.SPEAKING)
+        self.assertEqual(service.perception_profile, CameraActivityProfile.GESTURE)
+        self.assertEqual(service.target_fps, 5)
+        self.assertTrue(adapter.hand_detection_enabled)
+        self.assertTrue(adapter.face_detection_enabled)
+
+    async def test_debug_stream_temporarily_enables_preview_profile(self) -> None:
+        adapter = SimulatedCameraAdapter()
+        service = CameraService(adapter, gesture_fps=5)
+        await service.enable()
+
+        stream = service.mjpeg_stream()
+        chunk = await asyncio.wait_for(anext(stream), timeout=1)
+        self.assertIn(b"SIMULATED_JPEG", chunk)
+        self.assertEqual(service.perception_profile, CameraActivityProfile.DEBUG)
+        self.assertTrue(adapter.preview_enabled)
+
+        await stream.aclose()
+        self.assertEqual(service.perception_profile, CameraActivityProfile.IDLE)
+        self.assertFalse(adapter.preview_enabled)
+        await service.disable()

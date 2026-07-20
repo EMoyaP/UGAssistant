@@ -16,7 +16,7 @@ La aplicacion incluye:
 - Maquina de estados independiente y probada.
 - Avatar con expresiones de reposo, presencia, escucha, pensamiento, habla, error, aburrimiento y sueno.
 - Mirada controlada por el raton y por la posicion del rostro.
-- Captura de camara OpenCV a un maximo de 640 x 480 y 8 FPS.
+- Captura de camara OpenCV a un maximo de 640 x 480, con perfil adaptativo de 1 a 5 FPS para Raspberry Pi.
 - Deteccion facial local con el YuNet bloqueado.
 - Deteccion local de hasta dos manos con 21 puntos por mano.
 - Recuento de 0 a 5 dedos por mano y total estable de 0 a 10.
@@ -34,8 +34,8 @@ La aplicacion incluye:
 - Sintesis de texto local con Piper y las voces bloqueadas
   `es_ES-davefx-medium` y `fr_FR-tom-medium`.
 - Reproduccion por el altavoz seleccionado, volumen y velocidad configurables,
-  sincronizacion labial por RMS y fragmentacion de respuestas extensas con una
-  pausa breve configurable entre partes.
+  sincronizacion labial por RMS y fragmentacion de respuestas extensas preparada
+  en paralelo para evitar pausas artificiales entre partes.
 - Paneo estereo suave segun la posicion horizontal del rostro detectado.
 - Gestos geometricos: puno, palma, senalar, pulgar arriba/abajo y victoria.
 - El avatar sonrie con pulgar arriba y muestra tristeza con lagrimas con pulgar abajo.
@@ -348,10 +348,13 @@ La deteccion usa los modelos MP-PalmDet y MP-HandPose de OpenCV Zoo mediante
 OpenCV DNN sobre CPU. No depende del paquete `mediapipe`, lo que mantiene la
 misma ruta de ejecucion en Windows x64 y Linux ARM64.
 
-La cara y las manos comparten el mismo fotograma de la webcam. YuNet se ejecuta
-a la cadencia de captura y las manos cada tres fotogramas, aproximadamente 2.7
-veces por segundo con la configuracion actual de 8 FPS. Las redes se ejecutan
-secuencialmente y se limita la salida a dos manos.
+La cara y las manos comparten el mismo fotograma de la webcam. Para priorizar
+la voz en Raspberry Pi, el perfil es adaptativo: reposo a 1 FPS, rostro presente
+a 2 FPS y gesto de silencio a 5 FPS mientras habla o reproduce musica. Durante
+transcripcion y razonamiento se conserva la captura a 1 FPS, pero se suspenden
+YuNet y HandPose para que Whisper y Ollama tengan prioridad. Las manos se
+ejecutan cada tres fotogramas cuando el perfil las necesita y se limita la salida
+a dos manos.
 
 Los gestos se clasifican a partir de la geometria de los 21 puntos, sin un
 modelo adicional. Se reconocen `CLOSED_FIST`, `OPEN_PALM`, `POINTING`,
@@ -375,7 +378,8 @@ emociones ni identidad.
 `POINTING_AT_MOUTH` muestra la cremallera en el avatar y detiene una lectura
 en curso de forma local.
 
-La frecuencia puede reducirse para Raspberry Pi en `config/app.yaml`:
+La frecuencia se puede ajustar en `config/app.yaml`. Los valores de serie son
+conservadores para Raspberry Pi 5 y tambien funcionan en Windows:
 
 ```yaml
 hands:
@@ -392,7 +396,16 @@ camera:
   device_index: 0
   enabled_by_default: false
   preview_fps: 8
+  activity_fps:
+    idle: 1
+    person_detected: 2
+    processing: 1
+    gesture: 5
 ```
+
+La imagen MJPEG y sus anotaciones solo se codifican mientras esta abierta
+`/debug/camera`; el frontal normal no consume esa CPU. El perfil `debug` usa
+5 FPS con rostro y manos para conservar la utilidad de la vista de desarrollo.
 
 Para probar otro indice desde la terminal:
 

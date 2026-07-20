@@ -175,7 +175,8 @@ class VoiceAssistantService:
             self._end_requested = False
             await self._set_status( busy=True, phase="detecting_wake_word", detail="transcribing_wake_word")
             wake = await self._recognition_service.recognize_once(
-                initial_chunks=self._audio_service.take_monitor_audio_buffer()
+                initial_chunks=self._audio_service.take_monitor_audio_buffer(),
+                use_selected_language=False,
             )
             wake_language = self._wake_language(wake.text)
             if wake_language is None:
@@ -230,7 +231,9 @@ class VoiceAssistantService:
                 wake_transcript=wake.text,
                 language=wake.language,
             )
-            question = await self._recognition_service.recognize_once()
+            question = await self._recognition_service.recognize_once(
+                language_hint=wake_language
+            )
             if await self._handle_timer_request(wake.text, question.text, question.language):
                 return
             if await self._handle_music_request(wake.text, question.text, question.language):
@@ -475,7 +478,9 @@ class VoiceAssistantService:
             language=language,
         )
         try:
-            selection = await self._recognition_service.recognize_once()
+            selection = await self._recognition_service.recognize_once(
+                language_hint=language
+            )
         except NoSpeechDetectedError:
             await self._set_timer_status(
                 detail="timer_selection_timeout",
@@ -523,7 +528,9 @@ class VoiceAssistantService:
             language=language,
         )
         try:
-            duration = await self._recognition_service.recognize_once()
+            duration = await self._recognition_service.recognize_once(
+                language_hint=language
+            )
         except NoSpeechDetectedError:
             await self._set_timer_status(
                 detail="timer_duration_timeout",
@@ -639,7 +646,9 @@ class VoiceAssistantService:
                 language=language,
             )
             try:
-                requested_music = await self._recognition_service.recognize_once()
+                requested_music = await self._recognition_service.recognize_once(
+                    language_hint=language
+                )
             except NoSpeechDetectedError:
                 await self._set_status(
                     busy=False,
@@ -969,7 +978,8 @@ class VoiceAssistantService:
             )
             try:
                 follow_up = await self._recognition_service.recognize_once(
-                    wait_for_speech_seconds=self._follow_up_wait_seconds
+                    wait_for_speech_seconds=self._follow_up_wait_seconds,
+                    language_hint=language,
                 )
             except NoSpeechDetectedError:
                 await self._speech_service.speak(farewell)
@@ -1049,7 +1059,8 @@ class VoiceAssistantService:
                     self._follow_up_wait_seconds
                     if self._follow_up_wait_seconds > 0
                     else 5.0
-                )
+                ),
+                language_hint=language,
             )
         except NoSpeechDetectedError:
             return "complete"

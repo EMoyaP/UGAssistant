@@ -23,6 +23,10 @@ class AppSettings:
     camera_device_index: int = 0
     camera_enabled_by_default: bool = False
     camera_preview_fps: float = 8.0
+    camera_idle_fps: float = 1.0
+    camera_person_detected_fps: float = 2.0
+    camera_processing_fps: float = 1.0
+    camera_gesture_fps: float = 5.0
     camera_mirror_preview: bool = True
     camera_model_relative_path: Path = Path(
         "models/vision/face_detection_yunet_2023mar.onnx"
@@ -197,6 +201,7 @@ def load_app_settings(project_root: Path = PROJECT_ROOT) -> AppSettings:
     app = data.get("app", {})
     performance = data.get("performance", {})
     camera = data.get("camera", {})
+    camera_activity_fps = camera.get("activity_fps", {})
     hands = data.get("hands", {})
     audio = data.get("audio", {})
     llm = data.get("llm", {})
@@ -228,6 +233,18 @@ def load_app_settings(project_root: Path = PROJECT_ROOT) -> AppSettings:
         camera_device_index=int(camera.get("device_index", 0)),
         camera_enabled_by_default=bool(camera.get("enabled_by_default", False)),
         camera_preview_fps=float(camera.get("preview_fps", 8)),
+        camera_idle_fps=min(
+            max(float(camera_activity_fps.get("idle", 1)), 1.0), 10.0
+        ),
+        camera_person_detected_fps=min(
+            max(float(camera_activity_fps.get("person_detected", 2)), 1.0), 10.0
+        ),
+        camera_processing_fps=min(
+            max(float(camera_activity_fps.get("processing", 1)), 1.0), 10.0
+        ),
+        camera_gesture_fps=min(
+            max(float(camera_activity_fps.get("gesture", 5)), 1.0), 10.0
+        ),
         camera_mirror_preview=bool(camera.get("mirror_preview", True)),
         camera_model_relative_path=Path(
             str(

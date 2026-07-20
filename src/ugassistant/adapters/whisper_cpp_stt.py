@@ -72,23 +72,34 @@ class WhisperCppSTTAdapter:
             audio_path = temporary_root / "utterance.wav"
             audio_path.write_bytes(wav_bytes)
             logger.info("whisper_transcription_started bytes=%d", len(wav_bytes))
-            language, text, _score = await self._run_transcription(
-                audio_path,
-                temporary_root / "transcription-auto",
-                language="auto",
-                include_confidence=False,
-            )
-            if language not in self._candidate_languages:
-                logger.info(
-                    "whisper_language_fallback detected=%s candidates=%s",
-                    language,
-                    ",".join(self._candidate_languages),
-                )
-                language, text = await self._select_restricted_language(
+            normalized_hint = self._normalize_language_hint(language_hint)
+            if normalized_hint is not None:
+                _detected, text, _score = await self._run_transcription(
                     audio_path,
-                    temporary_root,
-                    language_hint=self._normalize_language_hint(language_hint),
+                    temporary_root / f"transcription-{normalized_hint}",
+                    language=normalized_hint,
+                    include_confidence=False,
                 )
+                language = normalized_hint
+                logger.info("whisper_transcription_used_language_hint language=%s", language)
+            else:
+                language, text, _score = await self._run_transcription(
+                    audio_path,
+                    temporary_root / "transcription-auto",
+                    language="auto",
+                    include_confidence=False,
+                )
+                if language not in self._candidate_languages:
+                    logger.info(
+                        "whisper_language_fallback detected=%s candidates=%s",
+                        language,
+                        ",".join(self._candidate_languages),
+                    )
+                    language, text = await self._select_restricted_language(
+                        audio_path,
+                        temporary_root,
+                        language_hint=None,
+                    )
 
             result = TranscriptionResult(
                 text=text,

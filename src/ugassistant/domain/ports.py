@@ -239,6 +239,15 @@ class CameraAdapter(Protocol):
     async def read_presence(self) -> CameraPresence:
         ...
 
+    async def set_hand_detection_enabled(self, enabled: bool) -> None:
+        ...
+
+    async def set_face_detection_enabled(self, enabled: bool) -> None:
+        ...
+
+    async def set_preview_enabled(self, enabled: bool) -> None:
+        ...
+
 
 class AudioAdapter(Protocol):
     async def list_devices(self) -> list[AudioDevice]:

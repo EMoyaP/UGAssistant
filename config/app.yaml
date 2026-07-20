@@ -9,6 +9,11 @@ camera:
   device_index: 0
   enabled_by_default: false
   preview_fps: 8
+  activity_fps:
+    idle: 1
+    person_detected: 2
+    processing: 1
+    gesture: 5
   mirror_preview: true
   model_path: "models/vision/face_detection_yunet_2023mar.onnx"
   score_threshold: 0.75
@@ -75,7 +80,7 @@ tts:
   max_text_length: 500
   process_timeout_seconds: 45.0
   output_guard_seconds: 0.2
-  chunk_pause_seconds: 0.25
+  chunk_pause_seconds: 0
   speech_rate: 0.85
   length_scale: 1.0
   noise_scale: 0.667

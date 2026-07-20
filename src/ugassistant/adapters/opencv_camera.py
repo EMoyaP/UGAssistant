@@ -60,6 +60,11 @@ class OpenCVCameraAdapter:
         self._cv2 = cv2_module
         self._device_candidates = device_candidates
         self._hand_perception = hand_perception
+        self._hand_detection_enabled = hand_perception is not None
+        self._face_detection_enabled = True
+        # The service disables preview outside /debug/camera. Keep the adapter
+        # useful on its own for diagnostics and direct integration tests.
+        self._preview_enabled = True
         self._hand_inference_interval_frames = max(1, hand_inference_interval_frames)
         self._finger_count_stabilizer = FingerCountStabilizer(
             finger_count_stable_samples
@@ -93,6 +98,15 @@ class OpenCVCameraAdapter:
 
     async def read_presence(self) -> CameraPresence:
         return self._last_presence
+
+    async def set_hand_detection_enabled(self, enabled: bool) -> None:
+        await asyncio.to_thread(self._set_hand_detection_enabled_sync, enabled)
+
+    async def set_face_detection_enabled(self, enabled: bool) -> None:
+        await asyncio.to_thread(self._set_face_detection_enabled_sync, enabled)
+
+    async def set_preview_enabled(self, enabled: bool) -> None:
+        await asyncio.to_thread(self._set_preview_enabled_sync, enabled)
 
     def _load_cv2(self) -> Any:
         if self._cv2 is None:
@@ -193,6 +207,24 @@ class OpenCVCameraAdapter:
                 detail="camera_closed",
             )
 
+    def _set_hand_detection_enabled_sync(self, enabled: bool) -> None:
+        with self._lock:
+            self._hand_detection_enabled = (
+                enabled and self._hand_perception is not None
+            )
+            if not self._hand_detection_enabled:
+                self._last_hands = ()
+                self._finger_count_stabilizer.reset()
+                self._stable_finger_count = None
+
+    def _set_face_detection_enabled_sync(self, enabled: bool) -> None:
+        with self._lock:
+            self._face_detection_enabled = enabled
+
+    def _set_preview_enabled_sync(self, enabled: bool) -> None:
+        with self._lock:
+            self._preview_enabled = enabled
+
     def _read_frame_sync(self) -> CameraFrame:
         with self._lock:
             if self._capture is None or self._detector is None:
@@ -206,13 +238,18 @@ class OpenCVCameraAdapter:
             if self._mirror:
                 frame = cv2.flip(frame, 1)
             height, width = frame.shape[:2]
-            self._detector.setInputSize((width, height))
-            _result, faces = self._detector.detect(frame)
-            presence = self._presence_from_faces(faces, width, height)
+            faces = None
+            if self._face_detection_enabled:
+                self._detector.setInputSize((width, height))
+                _result, faces = self._detector.detect(frame)
+                presence = self._presence_from_faces(faces, width, height)
+            else:
+                presence = self._last_presence
 
             self._frame_count += 1
             if (
-                self._hand_perception is not None
+                self._hand_detection_enabled
+                and self._hand_perception is not None
                 and (self._frame_count - 1) % self._hand_inference_interval_frames == 0
             ):
                 self._last_hands = self._hand_perception.detect(frame)
@@ -229,7 +266,7 @@ class OpenCVCameraAdapter:
                 self._last_hands,
             )
 
-            if presence.person_detected and faces is not None:
+            if self._preview_enabled and presence.person_detected and faces is not None:
                 face = max(faces, key=lambda row: float(row[2]) * float(row[3]))
                 x, y, face_width, face_height = (int(value) for value in face[:4])
                 cv2.rectangle(
@@ -248,17 +285,24 @@ class OpenCVCameraAdapter:
                             (91, 202, 240),
                             -1,
                         )
-            if self._hand_perception is not None:
+            if (
+                self._preview_enabled
+                and self._hand_detection_enabled
+                and self._hand_perception is not None
+            ):
                 self._hand_perception.draw(frame, self._last_hands)
 
-            encode_options = [getattr(cv2, "IMWRITE_JPEG_QUALITY", 1), 78]
-            encoded_ok, encoded = cv2.imencode(".jpg", frame, encode_options)
-            if not encoded_ok:
-                raise CameraReadError("Camera frame could not be encoded")
+            jpeg_bytes = b""
+            if self._preview_enabled:
+                encode_options = [getattr(cv2, "IMWRITE_JPEG_QUALITY", 1), 78]
+                encoded_ok, encoded = cv2.imencode(".jpg", frame, encode_options)
+                if not encoded_ok:
+                    raise CameraReadError("Camera frame could not be encoded")
+                jpeg_bytes = encoded.tobytes()
 
             self._last_presence = presence
             return CameraFrame(
-                jpeg_bytes=encoded.tobytes(),
+                jpeg_bytes=jpeg_bytes,
                 width=width,
                 height=height,
                 presence=presence,

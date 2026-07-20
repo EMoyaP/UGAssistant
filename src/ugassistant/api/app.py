@@ -235,11 +235,23 @@ def create_app(
             finger_count_stable_samples=settings.finger_count_stable_samples,
         )
 
+    spotify_playing = False
+
     async def broadcast_state() -> None:
+        await camera_service.set_activity(
+            state_machine.state,
+            music_playing=spotify_playing,
+        )
         await state_manager.broadcast(state_machine.snapshot().to_dict())
 
     silence_gesture_active = False
     end_gesture_active = False
+
+    async def stop_spotify_from_silence_gesture() -> None:
+        try:
+            await spotify_service.stop()
+        except SpotifyError:
+            logger.exception("spotify_stop_from_silence_gesture_failed")
 
     async def on_camera_status(status: CameraStatus) -> None:
         nonlocal silence_gesture_active, end_gesture_active
@@ -254,10 +266,10 @@ def create_app(
                 voice_assistant_service.request_end_session()
                 await speech_service.interrupt()
             if spotify_service.status.playback is not None:
-                try:
-                    await spotify_service.stop()
-                except SpotifyError:
-                    logger.exception("spotify_stop_from_silence_gesture_failed")
+                asyncio.create_task(
+                    stop_spotify_from_silence_gesture(),
+                    name="spotify-stop-from-silence-gesture",
+                )
         elif not has_silence_gesture:
             silence_gesture_active = False
         has_end_gesture = (
@@ -311,6 +323,10 @@ def create_app(
     camera_service = CameraService(
         camera_adapter,
         target_fps=settings.camera_preview_fps,
+        idle_fps=settings.camera_idle_fps,
+        person_detected_fps=settings.camera_person_detected_fps,
+        processing_fps=settings.camera_processing_fps,
+        gesture_fps=settings.camera_gesture_fps,
         model_ready=settings.camera_model_path.is_file(),
         hand_model_ready=hand_models_ready,
         selected_device_index=settings.camera_device_index,
@@ -549,6 +565,14 @@ def create_app(
         )
 
     async def on_spotify_status(status: SpotifyStatus) -> None:
+        nonlocal spotify_playing
+        spotify_playing = bool(
+            status.playback is not None and status.playback.is_playing
+        )
+        await camera_service.set_activity(
+            state_machine.state,
+            music_playing=spotify_playing,
+        )
         await spotify_manager.broadcast(status.to_dict())
 
     spotify_service = SpotifyService(

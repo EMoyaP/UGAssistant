@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import suppress
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
@@ -199,6 +200,7 @@ class SpeechService:
             resume_monitoring = self._audio_service.status.monitoring
             if resume_monitoring:
                 await self._audio_service.disable_monitoring()
+            pending_synthesis: asyncio.Task[bytes] | None = None
             try:
                 balance = 0.0
                 if self._balance_provider is not None:
@@ -209,20 +211,28 @@ class SpeechService:
                         busy=True,
                     )
                     await self._publish()
-                    wav_bytes = await self._adapter.synthesize(
-                        chunk,
-                        voice.voice_id,
-                        self._speech_rate,
-                    )
+                    if pending_synthesis is None:
+                        wav_bytes = await self._adapter.synthesize(
+                            chunk,
+                            voice.voice_id,
+                            self._speech_rate,
+                        )
+                    else:
+                        wav_bytes = await pending_synthesis
+                        pending_synthesis = None
+                    if index < len(chunks) - 1:
+                        pending_synthesis = asyncio.create_task(
+                            self._adapter.synthesize(
+                                chunks[index + 1],
+                                voice.voice_id,
+                                self._speech_rate,
+                            ),
+                            name="tts-next-chunk",
+                        )
                     self._lip_sync_track = build_lip_sync_track(wav_bytes)
                     self._status = self._build_status(phase="playing", busy=True)
                     await self._publish()
                     await self._audio_service.play_wav(wav_bytes, balance=balance)
-                    if (
-                        index < len(chunks) - 1
-                        and self._chunk_pause_seconds > 0
-                    ):
-                        await asyncio.sleep(self._chunk_pause_seconds)
                 if self._output_guard_seconds:
                     await asyncio.sleep(self._output_guard_seconds)
                 self._lip_sync_track = None
@@ -248,6 +258,11 @@ class SpeechService:
                 await self._publish()
                 raise
             finally:
+                if pending_synthesis is not None:
+                    if not pending_synthesis.done():
+                        pending_synthesis.cancel()
+                    with suppress(asyncio.CancelledError, Exception):
+                        await pending_synthesis
                 if self._active_task is current_task:
                     self._active_task = None
                 if resume_monitoring:

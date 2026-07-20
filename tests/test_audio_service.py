@@ -38,6 +38,16 @@ class ReindexedAudioAdapter(SimulatedAudioAdapter):
         ]
 
 
+class CountingAudioAdapter(SimulatedAudioAdapter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.list_devices_calls = 0
+
+    async def list_devices(self) -> list[AudioDevice]:
+        self.list_devices_calls += 1
+        return await super().list_devices()
+
+
 class AudioDeviceServiceTests(unittest.IsolatedAsyncioTestCase):
     async def test_selects_default_input_and_output_on_first_scan(self) -> None:
         service = AudioDeviceService(SimulatedAudioAdapter())
@@ -123,6 +133,37 @@ class AudioDeviceServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(silent.sound_detected)
         self.assertFalse(disabled.monitoring)
         self.assertFalse(adapter.monitoring)
+
+    async def test_coalesces_a_burst_of_monitor_levels(self) -> None:
+        adapter = SimulatedAudioAdapter()
+        published_levels: list[float] = []
+
+        async def on_status(status: object) -> None:
+            published_levels.append(getattr(status, "input_level"))
+
+        service = AudioDeviceService(adapter, on_status=on_status)
+        await service.refresh()
+        await service.enable_monitoring()
+        baseline = len(published_levels)
+
+        for level in range(100):
+            adapter.emit_input_level(level / 100)
+        await asyncio.sleep(0.05)
+
+        self.assertLessEqual(len(published_levels) - baseline, 2)
+        self.assertAlmostEqual(service.status.input_level, 0.99, places=2)
+        await service.disable_monitoring()
+
+    async def test_reuses_cached_devices_when_monitoring_restarts(self) -> None:
+        adapter = CountingAudioAdapter()
+        service = AudioDeviceService(adapter)
+        await service.refresh()
+        await service.enable_monitoring()
+        await service.disable_monitoring()
+        await service.enable_monitoring()
+
+        self.assertEqual(adapter.list_devices_calls, 1)
+        await service.disable_monitoring()
 
     async def test_requires_a_selected_input_to_start_monitoring(self) -> None:
         service = AudioDeviceService(SimulatedAudioAdapter())

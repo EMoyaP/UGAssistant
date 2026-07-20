@@ -104,13 +104,10 @@ class ConversationService:
                 question=normalized_question,
                 language=normalized_language,
             )
-            messages = (
-                LLMMessage(
-                    "system",
-                    self._system_prompt(normalized_language, response_detail),
-                ),
-                *self._history[-self._max_history_messages :],
-                LLMMessage("user", normalized_question),
+            messages = self._build_messages(
+                normalized_question,
+                normalized_language,
+                response_detail,
             )
             try:
                 async with self._inference_lock:
@@ -202,6 +199,36 @@ class ConversationService:
             if response_detail == "complete"
             else self._short_context_tokens
         )
+
+    def _build_messages(
+        self,
+        question: str,
+        language: str,
+        response_detail: ResponseDetail,
+    ) -> tuple[LLMMessage, ...]:
+        system = LLMMessage("system", self._system_prompt(language, response_detail))
+        current_question = LLMMessage("user", question)
+        context_tokens = self._context_tokens_for(response_detail)
+        output_reserve = self._max_tokens_for(response_detail)
+        # Ollama's context window includes the generated response. Keep a small
+        # margin for tokenisation differences between Spanish and French.
+        input_budget = max(256, context_tokens - output_reserve - 128)
+        selected_history: list[LLMMessage] = []
+        used_tokens = self._estimated_tokens(system.content) + self._estimated_tokens(
+            current_question.content
+        )
+        for message in reversed(self._history[-self._max_history_messages :]):
+            message_tokens = self._estimated_tokens(message.content)
+            if used_tokens + message_tokens > input_budget:
+                break
+            selected_history.append(message)
+            used_tokens += message_tokens
+        selected_history.reverse()
+        return (system, *selected_history, current_question)
+
+    @staticmethod
+    def _estimated_tokens(text: str) -> int:
+        return max(1, (len(text) + 3) // 4)
 
     def _clean_response(self, response: str) -> str:
         return " ".join(self._plain_text(response).split())

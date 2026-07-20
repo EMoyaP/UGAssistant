@@ -4,6 +4,7 @@ import asyncio
 import unittest
 
 from ugassistant.adapters.simulated import SimulatedLLMAdapter
+from ugassistant.domain.ports import LLMMessage
 from ugassistant.services.conversation import ConversationService
 
 
@@ -93,6 +94,31 @@ class ConversationServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Tomate y aceite.", answer)
         self.assertIn("1. Tritura los ingredientes.", answer)
         self.assertNotRegex(answer, r"[#*\[\]`]")
+
+    async def test_keeps_history_within_the_context_token_budget(self) -> None:
+        adapter = SimulatedLLMAdapter(response="Respuesta local.")
+        service = ConversationService(
+            adapter,
+            inference_lock=asyncio.Lock(),
+            max_history_turns=3,
+            short_context_tokens=1024,
+            max_tokens=256,
+        )
+        service._history = [  # type: ignore[attr-defined]
+            LLMMessage("user", "x" * 1600),
+            LLMMessage("assistant", "y" * 1600),
+            LLMMessage("user", "z" * 1600),
+            LLMMessage("assistant", "w" * 1600),
+        ]
+
+        await service.answer("Pregunta breve", "es")
+
+        messages = adapter.messages[-1]
+        estimated_tokens = sum(
+            service._estimated_tokens(message.content)  # type: ignore[attr-defined]
+            for message in messages
+        )
+        self.assertLessEqual(estimated_tokens, 1024 - 256 - 128)
 
 
 if __name__ == "__main__":

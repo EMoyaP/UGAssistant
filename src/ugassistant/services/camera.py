@@ -4,7 +4,8 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from enum import Enum
 
 from ugassistant.domain.ports import (
     CameraAdapter,
@@ -19,6 +20,7 @@ from ugassistant.domain.preferences import (
     match_device_preference,
     preference_for_device,
 )
+from ugassistant.domain.state_machine import AssistantState
 
 
 logger = logging.getLogger("ugassistant.camera")
@@ -43,6 +45,7 @@ class CameraStatus:
     hands: tuple[HandDetection, ...] = ()
     combined_gestures: tuple[CombinedGestureDetection, ...] = ()
     finger_count: int | None = None
+    perception_profile: str = "idle"
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -69,10 +72,19 @@ class CameraStatus:
                 gesture.to_dict() for gesture in self.combined_gestures
             ],
             "finger_count": self.finger_count,
+            "perception_profile": self.perception_profile,
         }
 
 
 CameraStatusCallback = Callable[[CameraStatus], Awaitable[None]]
+
+
+class CameraActivityProfile(str, Enum):
+    IDLE = "idle"
+    PERSON_DETECTED = "person_detected"
+    PROCESSING = "processing"
+    GESTURE = "gesture"
+    DEBUG = "debug"
 
 
 class CameraService:
@@ -81,13 +93,33 @@ class CameraService:
         adapter: CameraAdapter,
         *,
         target_fps: float = 8.0,
+        idle_fps: float = 1.0,
+        person_detected_fps: float = 2.0,
+        processing_fps: float = 1.0,
+        gesture_fps: float | None = None,
         model_ready: bool = False,
         hand_model_ready: bool = False,
         selected_device_index: int | None = 0,
         on_status: CameraStatusCallback | None = None,
     ) -> None:
         self._adapter = adapter
-        self._target_fps = min(max(target_fps, 1.0), 10.0)
+        self._profile_fps = {
+            CameraActivityProfile.IDLE: self._bounded_fps(idle_fps),
+            CameraActivityProfile.PERSON_DETECTED: self._bounded_fps(person_detected_fps),
+            CameraActivityProfile.PROCESSING: self._bounded_fps(processing_fps),
+            CameraActivityProfile.GESTURE: self._bounded_fps(
+                target_fps if gesture_fps is None else gesture_fps
+            ),
+            CameraActivityProfile.DEBUG: self._bounded_fps(
+                target_fps if gesture_fps is None else gesture_fps
+            ),
+        }
+        self._activity_profile = CameraActivityProfile.IDLE
+        self._effective_profile = CameraActivityProfile.IDLE
+        self._profile_applied = False
+        self._target_fps = self._profile_fps[self._effective_profile]
+        self._preview_subscribers = 0
+        self._profile_changed = asyncio.Event()
         self._model_ready = model_ready
         self._hand_model_ready = hand_model_ready
         self._selected_device_index = selected_device_index
@@ -111,6 +143,31 @@ class CameraService:
     @property
     def status(self) -> CameraStatus:
         return self._status
+
+    @property
+    def perception_profile(self) -> CameraActivityProfile:
+        return self._effective_profile
+
+    @property
+    def target_fps(self) -> float:
+        return self._target_fps
+
+    async def set_activity(
+        self,
+        state: AssistantState,
+        *,
+        music_playing: bool = False,
+    ) -> None:
+        if music_playing or state == AssistantState.SPEAKING:
+            activity_profile = CameraActivityProfile.GESTURE
+        elif state == AssistantState.PERSON_DETECTED:
+            activity_profile = CameraActivityProfile.PERSON_DETECTED
+        elif state in {AssistantState.TRANSCRIBING, AssistantState.THINKING}:
+            activity_profile = CameraActivityProfile.PROCESSING
+        else:
+            activity_profile = CameraActivityProfile.IDLE
+        self._activity_profile = activity_profile
+        await self._apply_effective_profile()
 
     async def list_devices(self) -> list[CameraDevice]:
         return await self._adapter.list_devices()
@@ -193,6 +250,7 @@ class CameraService:
         if self._enabled:
             return self._status
         try:
+            await self._apply_effective_profile()
             await self._adapter.open()
         except Exception as exc:
             self._status = CameraStatus(
@@ -259,20 +317,27 @@ class CameraService:
             await self.disable()
 
     async def mjpeg_stream(self) -> AsyncIterator[bytes]:
-        sequence = self._sequence - 1 if self._latest_frame is not None else self._sequence
-        while self._enabled:
-            frame, sequence = await self._wait_for_frame(sequence)
-            if frame is None:
-                return
-            header = (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n"
-                + f"Content-Length: {len(frame.jpeg_bytes)}\r\n\r\n".encode("ascii")
-            )
-            yield header + frame.jpeg_bytes + b"\r\n"
+        self._preview_subscribers += 1
+        await self._apply_effective_profile()
+        sequence = self._sequence
+        try:
+            while self._enabled:
+                frame, sequence = await self._wait_for_frame(sequence)
+                if frame is None:
+                    return
+                if not frame.jpeg_bytes:
+                    continue
+                header = (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n"
+                    + f"Content-Length: {len(frame.jpeg_bytes)}\r\n\r\n".encode("ascii")
+                )
+                yield header + frame.jpeg_bytes + b"\r\n"
+        finally:
+            self._preview_subscribers = max(0, self._preview_subscribers - 1)
+            await self._apply_effective_profile()
 
     async def _capture_loop(self) -> None:
-        interval = 1.0 / self._target_fps
         loop = asyncio.get_running_loop()
         try:
             while self._enabled:
@@ -299,13 +364,19 @@ class CameraService:
                     hands=frame.hands,
                     combined_gestures=frame.combined_gestures,
                     finger_count=frame.finger_count,
+                    perception_profile=self._effective_profile.value,
                 )
                 async with self._condition:
                     self._condition.notify_all()
                 await self._publish()
+                interval = 1.0 / self._target_fps
                 delay = interval - (loop.time() - started_at)
                 if delay > 0:
-                    await asyncio.sleep(delay)
+                    try:
+                        await asyncio.wait_for(self._profile_changed.wait(), delay)
+                    except TimeoutError:
+                        pass
+                    self._profile_changed.clear()
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -348,3 +419,35 @@ class CameraService:
             await self._on_status(self._status)
         except Exception:
             logger.exception(json.dumps({"event": "camera_status_callback_failed"}))
+
+    async def _apply_effective_profile(self) -> None:
+        effective_profile = (
+            CameraActivityProfile.DEBUG
+            if self._preview_subscribers
+            else self._activity_profile
+        )
+        if effective_profile == self._effective_profile and self._profile_applied:
+            return
+        self._effective_profile = effective_profile
+        self._target_fps = self._profile_fps[effective_profile]
+        hands_enabled = effective_profile in {
+            CameraActivityProfile.GESTURE,
+            CameraActivityProfile.DEBUG,
+        }
+        face_enabled = effective_profile != CameraActivityProfile.PROCESSING
+        await self._adapter.set_hand_detection_enabled(hands_enabled)
+        await self._adapter.set_face_detection_enabled(face_enabled)
+        await self._adapter.set_preview_enabled(
+            effective_profile == CameraActivityProfile.DEBUG
+        )
+        self._profile_applied = True
+        self._status = replace(
+            self._status,
+            perception_profile=effective_profile.value,
+        )
+        self._profile_changed.set()
+        await self._publish()
+
+    @staticmethod
+    def _bounded_fps(value: float) -> float:
+        return min(max(value, 1.0), 10.0)

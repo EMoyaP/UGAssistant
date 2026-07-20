@@ -115,11 +115,15 @@ class VoiceRecognitionService:
         *,
         initial_chunks: tuple[tuple[float, bytes], ...] = (),
         wait_for_speech_seconds: float | None = None,
+        language_hint: str | None = None,
+        use_selected_language: bool = True,
     ) -> TranscriptionResult:
         return await self._recognize(
             repeat=False,
             initial_chunks=initial_chunks,
             wait_for_speech_seconds=wait_for_speech_seconds,
+            language_hint=language_hint,
+            use_selected_language=use_selected_language,
         )
 
     async def _recognize(
@@ -128,6 +132,8 @@ class VoiceRecognitionService:
         repeat: bool,
         initial_chunks: tuple[tuple[float, bytes], ...] = (),
         wait_for_speech_seconds: float | None = None,
+        language_hint: str | None = None,
+        use_selected_language: bool = True,
     ) -> TranscriptionResult:
         if self._lock.locked():
             raise RecognitionBusyError("Voice recognition is already active")
@@ -178,7 +184,15 @@ class VoiceRecognitionService:
                 async with self._inference_lock:
                     result = await self._adapter.transcribe(
                         wav_bytes,
-                        language_hint=self._speech_service.status.selected_language,
+                        language_hint=(
+                            language_hint
+                            if language_hint is not None
+                            else (
+                                self._speech_service.status.selected_language
+                                if use_selected_language
+                                else None
+                            )
+                        ),
                     )
                 self._validate_language(result)
                 await self._set_status(

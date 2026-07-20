@@ -120,6 +120,10 @@ class AudioDeviceService:
         self._output_lock = asyncio.Lock()
         self._input_level = 0.0
         self._event_loop: asyncio.AbstractEventLoop | None = None
+        self._level_task: asyncio.Task[None] | None = None
+        self._pending_input_level: float | None = None
+        self._last_level_publish_at = 0.0
+        self._level_publish_interval_seconds = 0.1
         self._status = AudioStatus()
 
     @property
@@ -253,7 +257,7 @@ class AudioDeviceService:
         return self._status
 
     async def enable_output(self) -> AudioStatus:
-        status = await self.refresh()
+        status = await self._current_device_status()
         if status.selected_output_index is None:
             raise RuntimeError("No audio output device selected")
         self._output_enabled = True
@@ -324,7 +328,7 @@ class AudioDeviceService:
             return self._status
         if self._recording:
             raise AudioCaptureBusyError("A voice recording is active")
-        status = await self.refresh()
+        status = await self._current_device_status()
         if status.selected_input_index is None:
             raise RuntimeError("No audio input device selected")
         selected_input = next(
@@ -365,6 +369,15 @@ class AudioDeviceService:
         self._event_loop = None
         self._activity_detector.reset()
         self._monitor_pcm_chunks.clear()
+        self._pending_input_level = None
+        level_task = self._level_task
+        self._level_task = None
+        if level_task is not None and not level_task.done():
+            level_task.cancel()
+            try:
+                await level_task
+            except asyncio.CancelledError:
+                pass
         self._input_level = 0.0
         if was_monitoring:
             await self._adapter.stop_input_monitor()
@@ -390,7 +403,7 @@ class AudioDeviceService:
         if target_sample_rate <= 0:
             raise ValueError("Target sample rate must be positive")
 
-        status = await self.refresh()
+        status = await self._current_device_status()
         selected_input = next(
             (
                 device
@@ -560,14 +573,28 @@ class AudioDeviceService:
     def _schedule_input_level(self, level: float) -> None:
         if not self._monitoring:
             return
-        task = asyncio.create_task(self._process_input_level(level))
-        task.add_done_callback(self._log_level_task_error)
+        self._pending_input_level = min(max(float(level), 0.0), 1.0)
+        if self._level_task is not None and not self._level_task.done():
+            return
+        self._level_task = asyncio.create_task(self._drain_input_levels())
+        self._level_task.add_done_callback(self._log_level_task_error)
 
-    async def _process_input_level(self, level: float) -> None:
-        snapshot = self._activity_detector.update(level)
-        self._input_level = snapshot.level
-        self._status = self._build_status(self._status.inputs, self._status.outputs)
-        await self._publish()
+    async def _drain_input_levels(self) -> None:
+        loop = asyncio.get_running_loop()
+        while self._monitoring and self._pending_input_level is not None:
+            level = self._pending_input_level
+            self._pending_input_level = None
+            was_active = self._activity_detector.active
+            snapshot = self._activity_detector.update(level)
+            self._input_level = snapshot.level
+            self._status = self._build_status(self._status.inputs, self._status.outputs)
+            now = loop.time()
+            if (
+                was_active != snapshot.active
+                or now - self._last_level_publish_at >= self._level_publish_interval_seconds
+            ):
+                self._last_level_publish_at = now
+                await self._publish()
 
     @staticmethod
     def _log_level_task_error(task: asyncio.Task[None]) -> None:
@@ -583,6 +610,12 @@ class AudioDeviceService:
     async def _publish(self) -> None:
         if self._on_status is not None:
             await self._on_status(self._status)
+
+    async def _current_device_status(self) -> AudioStatus:
+        """Use the last device scan until an explicit refresh or a stream failure."""
+        if self._status.inputs or self._status.outputs:
+            return self._status
+        return await self.refresh()
 
     def _build_status(
         self,

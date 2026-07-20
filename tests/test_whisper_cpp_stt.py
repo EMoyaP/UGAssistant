@@ -85,7 +85,7 @@ class WhisperCppSTTAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("--no-gpu", captured_command)
         self.assertIn("3", captured_command)
 
-    async def test_uses_french_voice_hint_when_candidate_scores_are_close(self) -> None:
+    async def test_uses_the_known_french_language_without_auto_detection(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             executable = root / "whisper-cli.exe"
@@ -165,11 +165,9 @@ class WhisperCppSTTAdapterTests(unittest.IsolatedAsyncioTestCase):
                 str(command[command.index("--language") + 1])
                 for command in captured_commands
             ],
-            ["auto", "es", "fr"],
+            ["fr"],
         )
         self.assertNotIn("--output-json-full", captured_commands[0])
-        self.assertIn("--output-json-full", captured_commands[1])
-        self.assertIn("--output-json-full", captured_commands[2])
 
 
 if __name__ == "__main__":
