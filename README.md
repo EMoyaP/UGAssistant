@@ -488,3 +488,19 @@ para Windows AMD64 y Linux ARM64; no se sustituye ningun modelo.
 - No hay reconocimiento de identidad ni analisis de emociones.
 - No se envia telemetria ni contenido a servicios externos.
 - La previsualizacion y la deteccion se sirven unicamente desde `127.0.0.1`.
+
+## Licencia
+
+Copyright (c) 2026 EMoyaP.
+
+El codigo y la documentacion propios de UGAssistant se distribuyen bajo la
+[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International]
+(https://creativecommons.org/licenses/by-nc-sa/4.0/). Puedes usar, adaptar y
+redistribuir el proyecto solo con fines no comerciales, siempre que atribuyas
+la autoria a `EMoyaP`, enlaces este repositorio e indiques los cambios
+realizados. Las obras derivadas que se compartan deben conservar la misma
+licencia o una compatible.
+
+Consulta el texto legal completo en [LICENSE](LICENSE). Los modelos, runtimes,
+bibliotecas y demas recursos de terceros mantienen sus propias licencias y no
+quedan relicenciados por esta declaracion.
