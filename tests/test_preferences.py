@@ -88,11 +88,6 @@ class PreferenceStoreTests(unittest.TestCase):
         self.assertEqual(updated.camera_device, original.camera_device)
         self.assertEqual(updated.output_volume, 0.5)
 
-    def test_legacy_preferences_without_iot_configuration_are_supported(self) -> None:
-        loaded = UserPreferences.from_dict({"schema_version": 1})
-
-        self.assertEqual(loaded.home_assistant_url, "")
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,10 +36,6 @@ const stateButtons = Array.from(document.querySelectorAll("[data-next-state]"));
 const wakeSpanishInput = document.querySelector("#wakeSpanishInput");
 const wakeFrenchInput = document.querySelector("#wakeFrenchInput");
 const saveProfileButton = document.querySelector("#saveProfileButton");
-const homeAssistantUrlInput = document.querySelector("#homeAssistantUrlInput");
-const homeAssistantTokenInput = document.querySelector("#homeAssistantTokenInput");
-const iotSettingStatus = document.querySelector("#iotSettingStatus");
-const saveIoTButton = document.querySelector("#saveIoTButton");
 const conversationTurns = document.querySelector("#conversationTurns");
 const timerStack = document.querySelector("#timerStack");
 
@@ -233,41 +229,6 @@ async function saveAssistantProfile() {
     console.error(error);
   } finally {
     saveProfileButton.disabled = false;
-  }
-}
-
-async function loadIoTConfiguration() {
-  const response = await fetch("/api/iot/config");
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.detail || "IoT configuration request failed");
-  homeAssistantUrlInput.value = payload.home_assistant_url || "";
-  iotSettingStatus.textContent = payload.token_configured
-    ? "Home Assistant configurado"
-    : "Home Assistant sin configurar";
-}
-
-async function saveIoTConfiguration() {
-  saveIoTButton.disabled = true;
-  try {
-    const response = await fetch("/api/iot/config", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        home_assistant_url: homeAssistantUrlInput.value,
-        token: homeAssistantTokenInput.value,
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.detail || "IoT configuration failed");
-    homeAssistantTokenInput.value = "";
-    iotSettingStatus.textContent = payload.connected
-      ? `${payload.entities.length} elementos disponibles`
-      : "Home Assistant no responde";
-  } catch (error) {
-    iotSettingStatus.textContent = "Error de conexion local";
-    console.error(error);
-  } finally {
-    saveIoTButton.disabled = false;
   }
 }
 
@@ -1010,7 +971,6 @@ settingsDialog.addEventListener("click", (event) => {
 
 shutdownButton.addEventListener("click", shutdownSystem);
 saveProfileButton.addEventListener("click", saveAssistantProfile);
-saveIoTButton.addEventListener("click", saveIoTConfiguration);
 
 window.addEventListener("pointermove", handlePointerMove, { passive: true });
 window.addEventListener("pointerdown", registerActivity, { passive: true });
@@ -1035,7 +995,6 @@ loadTTSStatus().catch((error) => {
   console.error(error);
 });
 loadAssistantProfile().catch((error) => console.error(error));
-loadIoTConfiguration().catch((error) => console.error(error));
 updateLocalClock();
 window.setInterval(updateLocalClock, 1000);
 window.setInterval(() => renderTimers(), 1000);

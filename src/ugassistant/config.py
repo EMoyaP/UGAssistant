@@ -115,7 +115,6 @@ class AppSettings:
     tts_noise_scale: float = 0.667
     tts_noise_w: float = 0.8
     preferences_relative_path: Path = Path("data/preferences.yaml")
-    home_assistant_token_relative_path: Path = Path("data/home_assistant.token")
 
     @property
     def camera_model_path(self) -> Path:
@@ -152,10 +151,6 @@ class AppSettings:
     @property
     def preferences_path(self) -> Path:
         return self.project_root / self.preferences_relative_path
-
-    @property
-    def home_assistant_token_path(self) -> Path:
-        return self.project_root / self.home_assistant_token_relative_path
 
     def tts_executable_path(
         self,
@@ -207,7 +202,6 @@ def load_app_settings(project_root: Path = PROJECT_ROOT) -> AppSettings:
     stt = data.get("stt", {})
     tts = data.get("tts", {})
     persistence = data.get("persistence", {})
-    iot = data.get("iot", {})
     resolution = performance.get("camera_max_resolution", [640, 480])
     detection_fps = performance.get("face_detection_target_fps", [5, 10])
     audio_activation_threshold = min(
@@ -467,8 +461,5 @@ def load_app_settings(project_root: Path = PROJECT_ROOT) -> AppSettings:
         tts_noise_w=max(float(tts.get("noise_w", 0.8)), 0.0),
         preferences_relative_path=Path(
             str(persistence.get("preferences_path", "data/preferences.yaml"))
-        ),
-        home_assistant_token_relative_path=Path(
-            str(iot.get("token_path", "data/home_assistant.token"))
         ),
     )

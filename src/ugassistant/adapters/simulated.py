@@ -17,7 +17,6 @@ from ugassistant.domain.ports import (
     TTSVoice,
     TranscriptionResult,
 )
-from ugassistant.domain.iot import IoTEntity, IoTStatus
 
 
 class SimulatedLLMAdapter:
@@ -48,41 +47,6 @@ class SimulatedLLMAdapter:
     async def generate(self, prompt: str) -> str:
         return f"Respuesta simulada a: {prompt[:80]}"
 
-
-class SimulatedIoTAdapter:
-    def __init__(self) -> None:
-        self.base_url = ""
-        self.token = ""
-        self.controls: list[tuple[str, str]] = []
-        self._entities = (
-            IoTEntity(
-                "light.salon",
-                "Lámpara del salón",
-                "light",
-                "off",
-                True,
-                ("turn_on", "turn_off", "toggle"),
-            ),
-        )
-
-    def configure(self, base_url: str, token: str) -> None:
-        self.base_url = base_url
-        self.token = token
-
-    async def status(self) -> IoTStatus:
-        return IoTStatus(
-            configured=bool(self.base_url and self.token),
-            connected=bool(self.base_url and self.token),
-            detail="ready" if self.base_url and self.token else "not_configured",
-            entities=self._entities if self.base_url and self.token else (),
-        )
-
-    async def refresh(self) -> IoTStatus:
-        return await self.status()
-
-    async def control(self, entity_id: str, action: str) -> IoTStatus:
-        self.controls.append((entity_id, action))
-        return await self.status()
 
 class SimulatedSTTAdapter:
     def __init__(
