@@ -121,3 +121,12 @@ class CameraServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service.perception_profile, CameraActivityProfile.IDLE)
         self.assertFalse(adapter.preview_enabled)
         await service.disable()
+
+    async def test_idle_profile_keeps_capturing_after_its_interval(self) -> None:
+        service = CameraService(SimulatedCameraAdapter(), idle_fps=1)
+        await service.enable()
+        await asyncio.sleep(1.1)
+
+        self.assertTrue(service.status.enabled)
+        self.assertGreaterEqual(service.status.sequence, 2)
+        await service.disable()

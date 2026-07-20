@@ -374,7 +374,7 @@ class CameraService:
                 if delay > 0:
                     try:
                         await asyncio.wait_for(self._profile_changed.wait(), delay)
-                    except TimeoutError:
+                    except asyncio.TimeoutError:
                         pass
                     self._profile_changed.clear()
         except asyncio.CancelledError:
