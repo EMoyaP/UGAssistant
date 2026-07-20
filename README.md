@@ -228,6 +228,29 @@ solo por el indice variable de Windows o ALSA. Si el dispositivo guardado no
 esta conectado, UGAssistant selecciona ninguno en vez de cambiar a otro. El
 archivo es local, no contiene audio o video y no se envia fuera del equipo.
 
+## IoT local con Home Assistant
+
+UGAssistant puede descubrir y controlar elementos de una instancia de Home
+Assistant accesible en la misma red local. No se conecta a Alexa, Amazon ni a
+servicios en la nube: Home Assistant es el unico intermediario local.
+
+1. En Home Assistant crea un **token de acceso de larga duracion** desde el
+   perfil de la persona usuaria.
+2. En UGAssistant abre Configuracion, completa la URL local, por ejemplo
+   `http://homeassistant.local:8123`, pega el token y pulsa **Guardar y
+   comprobar**.
+3. Abre **Debug de IoT** desde el mismo modal para ver las entidades
+   controlables y probar las acciones disponibles.
+
+La URL debe ser un host local, una direccion privada o un nombre `.local`. El
+token se conserva exclusivamente en `data/home_assistant.token`, que esta fuera
+del control de versiones y recibe permisos restrictivos en Raspberry Pi. La
+interfaz no muestra ni devuelve el token. Se descubren luces, interruptores,
+ventiladores, persianas, climatizacion, escenas, scripts, reproductores y
+cerraduras. Abrir persianas o cerraduras exige confirmacion tactil en la vista
+de depuracion. Las ordenes de voz para domotica se incorporaran en una fase
+posterior.
+
 ## Dispositivos de audio
 
 La aplicacion enumera entradas y salidas con `sounddevice` y PortAudio. En

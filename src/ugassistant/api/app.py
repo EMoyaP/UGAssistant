@@ -13,6 +13,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from ugassistant.adapters.hand_perception import OpenCVHandPerception
+from ugassistant.adapters.home_assistant import (
+    HomeAssistantRESTAdapter,
+    LocalHomeAssistantTokenStore,
+)
 from ugassistant.adapters.ollama import OllamaAdapter
 from ugassistant.adapters.opencv_camera import OpenCVCameraAdapter
 from ugassistant.adapters.piper_tts import PiperTTSAdapter, PiperVoiceConfig
@@ -31,6 +35,7 @@ from ugassistant.domain.ports import (
 )
 from ugassistant.domain.platform import detect_platform
 from ugassistant.domain.preferences import UserPreferences
+from ugassistant.domain.iot import HomeAssistantError, IoTAdapter
 from ugassistant.domain.state_machine import (
     AssistantState,
     AssistantStateMachine,
@@ -50,6 +55,7 @@ from ugassistant.services.recognition import (
     VoiceRecognitionService,
 )
 from ugassistant.services.speech import SpeechBusyError, SpeechService, SpeechStatus
+from ugassistant.services.iot import IoTService
 from ugassistant.services.timers import TimerService
 from ugassistant.services.voice_assistant import (
     VoiceAssistantService,
@@ -72,6 +78,15 @@ class ConversationRequest(BaseModel):
 class AssistantProfileRequest(BaseModel):
     spanish_wake_word: str
     french_wake_word: str
+
+
+class IoTConfigurationRequest(BaseModel):
+    home_assistant_url: str = ""
+    token: str = ""
+
+
+class IoTControlRequest(BaseModel):
+    action: str
 
 
 class StateConnectionManager:
@@ -107,6 +122,7 @@ def create_app(
     stt_adapter: STTAdapter | None = None,
     preference_store: YAMLPreferenceStore | None = None,
     llm_adapter: LLMAdapter | None = None,
+    iot_adapter: IoTAdapter | None = None,
 ) -> FastAPI:
     settings = settings or load_app_settings()
     state_machine = AssistantStateMachine()
@@ -117,6 +133,7 @@ def create_app(
     recognition_manager = StateConnectionManager()
     conversation_manager = StateConnectionManager()
     assistant_manager = StateConnectionManager()
+    iot_manager = StateConnectionManager()
     static_dir = Path(__file__).resolve().parents[1] / "web" / "static"
     platform_info = detect_platform()
     preference_store = preference_store or YAMLPreferenceStore(settings.preferences_path)
@@ -534,6 +551,19 @@ def create_app(
         on_status=on_conversation_status,
     )
 
+    if iot_adapter is None:
+        iot_adapter = HomeAssistantRESTAdapter(
+            LocalHomeAssistantTokenStore(settings.home_assistant_token_path)
+        )
+    iot_service = IoTService(iot_adapter)
+    if preferences is not None and preferences.home_assistant_url:
+        iot_service.configure(preferences.home_assistant_url, "")
+
+    async def publish_iot_status() -> dict[str, object]:
+        payload = iot_service.status.to_dict()
+        await iot_manager.broadcast(payload)
+        return payload
+
     async def on_voice_assistant_status(status: VoiceAssistantStatus) -> None:
         await assistant_manager.broadcast(status.to_dict())
 
@@ -584,6 +614,9 @@ def create_app(
                 voice_assistant_service.wake_words["fr"][0]
                 if voice_assistant_service.wake_words["fr"]
                 else settings.wake_french_words[0]
+            ),
+            home_assistant_url=(
+                preferences.home_assistant_url if preferences is not None else ""
             ),
         )
 
@@ -653,6 +686,10 @@ def create_app(
         except Exception:
             logger.exception("ollama_startup_scan_failed")
         try:
+            await iot_service.refresh()
+        except Exception:
+            logger.exception("iot_startup_scan_failed")
+        try:
             if preferences is not None:
                 await camera_service.restore_device_preference(
                     preferences.camera_device
@@ -689,6 +726,7 @@ def create_app(
     app.state.recognition_manager = recognition_manager
     app.state.conversation_manager = conversation_manager
     app.state.assistant_manager = assistant_manager
+    app.state.iot_manager = iot_manager
     app.state.camera_service = camera_service
     app.state.audio_service = audio_service
     app.state.speech_service = speech_service
@@ -696,6 +734,7 @@ def create_app(
     app.state.conversation_service = conversation_service
     app.state.voice_assistant_service = voice_assistant_service
     app.state.timer_service = timer_service
+    app.state.iot_service = iot_service
     app.state.preference_store = preference_store
     app.state.shutdown_callback = None
 
@@ -713,6 +752,10 @@ def create_app(
     async def audio_debug() -> FileResponse:
         return FileResponse(static_dir / "audio_debug.html")
 
+    @app.get("/debug/iot")
+    async def iot_debug() -> FileResponse:
+        return FileResponse(static_dir / "iot_debug.html")
+
     @app.get("/health")
     async def health() -> dict[str, object]:
         model_lock = load_model_lock(settings.project_root)
@@ -726,6 +769,7 @@ def create_app(
             "tts": speech_service.status.to_dict(),
             "stt": recognition_service.status.to_dict(),
             "llm": conversation_service.status.to_dict(),
+            "iot": iot_service.status.to_dict(),
             "voice_assistant": voice_assistant_service.status.to_dict(),
         }
 
@@ -760,6 +804,50 @@ def create_app(
             french_wake_word=french,
         )
         return await get_assistant_profile()
+
+    @app.get("/api/iot")
+    async def get_iot_status() -> dict[str, object]:
+        try:
+            await iot_service.refresh()
+        except Exception as exc:
+            logger.exception("iot_refresh_failed")
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return await publish_iot_status()
+
+    @app.get("/api/iot/config")
+    async def get_iot_configuration() -> dict[str, object]:
+        current = preferences or await snapshot_preferences()
+        return {
+            "home_assistant_url": current.home_assistant_url,
+            "token_configured": iot_service.status.configured,
+        }
+
+    @app.put("/api/iot/config")
+    async def update_iot_configuration(
+        request: IoTConfigurationRequest,
+    ) -> dict[str, object]:
+        current = preferences or await snapshot_preferences()
+        url = request.home_assistant_url.strip() or current.home_assistant_url
+        try:
+            iot_service.configure(url, request.token)
+            status = await iot_service.refresh()
+        except (ValueError, HomeAssistantError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        await update_preferences(home_assistant_url=url)
+        await iot_manager.broadcast(status.to_dict())
+        return status.to_dict()
+
+    @app.post("/api/iot/entities/{entity_id:path}")
+    async def control_iot_entity(
+        entity_id: str,
+        request: IoTControlRequest,
+    ) -> dict[str, object]:
+        try:
+            status = await iot_service.control(entity_id, request.action)
+        except (ValueError, HomeAssistantError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        await iot_manager.broadcast(status.to_dict())
+        return status.to_dict()
 
     @app.post("/api/system/shutdown")
     async def shutdown_system() -> dict[str, str]:
@@ -1179,5 +1267,18 @@ def create_app(
         except Exception:
             logger.exception("voice_assistant_websocket_error")
             await assistant_manager.disconnect(websocket)
+
+    @app.websocket("/ws/iot")
+    async def iot_socket(websocket: WebSocket) -> None:
+        await iot_manager.connect(websocket)
+        await websocket.send_json(iot_service.status.to_dict())
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            await iot_manager.disconnect(websocket)
+        except Exception:
+            logger.exception("iot_websocket_error")
+            await iot_manager.disconnect(websocket)
 
     return app

@@ -93,3 +93,5 @@ development:
   simulated_adapters: true
 persistence:
   preferences_path: "data/preferences.yaml"
+iot:
+  token_path: "data/home_assistant.token"

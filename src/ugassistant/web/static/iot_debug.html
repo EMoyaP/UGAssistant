@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UGAssistant - IoT local</title>
+    <link rel="stylesheet" href="/static/iot_debug.css?v=1">
+  </head>
+  <body>
+    <main class="iot-shell">
+      <header>
+        <div>
+          <a href="/">UGAssistant</a>
+          <h1>IoT local</h1>
+        </div>
+        <button id="refreshButton" type="button" title="Actualizar elementos">Actualizar</button>
+      </header>
+      <section class="connection-card" aria-labelledby="connectionTitle">
+        <div>
+          <p>HOME ASSISTANT</p>
+          <h2 id="connectionTitle">Conexión local</h2>
+        </div>
+        <label>URL<input id="urlInput" type="url" placeholder="http://homeassistant.local:8123" autocomplete="off"></label>
+        <label>Token<input id="tokenInput" type="password" placeholder="Pega el token de larga duración" autocomplete="new-password"></label>
+        <button id="saveButton" type="button">Guardar y conectar</button>
+        <span id="connectionStatus" role="status">Sin configurar</span>
+      </section>
+      <section class="inventory" aria-labelledby="inventoryTitle">
+        <div class="inventory-heading">
+          <div><p>INVENTARIO</p><h2 id="inventoryTitle">Elementos controlables</h2></div>
+          <span id="entityCount">0 elementos</span>
+        </div>
+        <div id="entityList" class="entity-list" aria-live="polite">
+          <p class="empty">Configura una instancia local de Home Assistant para descubrir los elementos.</p>
+        </div>
+      </section>
+    </main>
+    <script src="/static/iot_debug.js?v=1"></script>
+  </body>
+</html>

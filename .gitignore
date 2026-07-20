@@ -11,4 +11,4 @@ tools/piper/
 tools/whisper/
 *.log
 data/preferences.yaml
-data/spotify.tokens.json
+data/home_assistant.token

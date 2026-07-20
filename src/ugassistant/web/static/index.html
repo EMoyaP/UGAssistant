@@ -156,6 +156,27 @@
             <div class="debug-links">
               <a href="/debug/camera" target="_blank" rel="noopener">Debug de camara</a>
               <a href="/debug/audio" target="_blank" rel="noopener">Debug de audio</a>
+              <a href="/debug/iot" target="_blank" rel="noopener">Debug de IoT</a>
+            </div>
+          </section>
+
+          <section class="device-setting" aria-labelledby="iotSettingTitle">
+            <div class="device-setting-heading">
+              <div>
+                <h3 id="iotSettingTitle">Automatizacion local</h3>
+                <p id="iotSettingStatus">Home Assistant sin configurar</p>
+              </div>
+            </div>
+            <label class="device-field" for="homeAssistantUrlInput">
+              <span>URL de Home Assistant</span>
+              <input id="homeAssistantUrlInput" type="url" placeholder="http://homeassistant.local:8123" autocomplete="off">
+            </label>
+            <label class="device-field" for="homeAssistantTokenInput">
+              <span>Token de acceso de larga duracion</span>
+              <input id="homeAssistantTokenInput" type="password" autocomplete="new-password" placeholder="Solo se guarda en este dispositivo">
+            </label>
+            <div class="profile-actions">
+              <button id="saveIoTButton" type="button" class="primary-button">Guardar y comprobar</button>
             </div>
           </section>
 
@@ -251,6 +272,6 @@
       </form>
     </dialog>
 
-    <script src="/static/app.js?v=28" defer></script>
+    <script src="/static/app.js?v=29" defer></script>
   </body>
 </html>
