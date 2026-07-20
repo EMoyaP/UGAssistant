@@ -41,7 +41,7 @@ La prohibicion general de servicios de terceros tiene una excepcion: Spotify se 
 
 Windows y Raspberry Pi deben utilizar exactamente los mismos modelos y archivos:
 
-* LLM: Ollama `qwen3:1.7b`.
+* LLM: Ollama `qwen3:4b-instruct`.
 * STT: whisper.cpp `ggml-base.bin`, modelo multilingüe.
 * TTS: Piper `es_ES-davefx-medium.onnx`.
 * Visión facial: YuNet `face_detection_yunet_2023mar.onnx`.

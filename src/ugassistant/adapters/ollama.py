@@ -43,6 +43,8 @@ class OllamaAdapter(LLMAdapter):
         *,
         max_tokens: int,
         temperature: float,
+        think: bool,
+        context_tokens: int,
     ) -> str:
         payload = await asyncio.to_thread(
             self._request,
@@ -54,10 +56,11 @@ class OllamaAdapter(LLMAdapter):
                     for message in messages
                 ],
                 "stream": False,
-                "think": False,
+                "think": think,
                 "keep_alive": "5m",
                 "options": {
                     "num_predict": max_tokens,
+                    "num_ctx": context_tokens,
                     "temperature": temperature,
                 },
             },

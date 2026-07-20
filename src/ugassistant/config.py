@@ -51,13 +51,13 @@ class AppSettings:
     audio_spatial_pan_enabled: bool = True
     audio_spatial_pan_max: float = 0.65
     llm_base_url: str = "http://127.0.0.1:11434"
-    llm_model: str = "qwen3:1.7b"
+    llm_model: str = "qwen3:4b-instruct"
     llm_timeout_seconds: float = 120.0
     llm_max_history_turns: int = 3
-    llm_max_response_characters: int = 320
-    llm_max_tokens: int = 160
-    llm_complete_max_response_characters: int = 2200
-    llm_complete_max_tokens: int = 640
+    llm_short_context_tokens: int = 2048
+    llm_complete_context_tokens: int = 4096
+    llm_max_tokens: int = 256
+    llm_complete_max_tokens: int = 1536
     llm_temperature: float = 0.4
     wake_spanish_words: tuple[str, ...] = ("hola",)
     wake_french_words: tuple[str, ...] = ("salut",)
@@ -291,7 +291,7 @@ def load_app_settings(project_root: Path = PROJECT_ROOT) -> AppSettings:
             1.0,
         ),
         llm_base_url=str(llm.get("base_url", "http://127.0.0.1:11434")).rstrip("/"),
-        llm_model=str(llm.get("model", "qwen3:1.7b")),
+        llm_model=str(llm.get("model", "qwen3:4b-instruct")),
         llm_timeout_seconds=min(
             max(float(llm.get("timeout_seconds", 120.0)), 5.0),
             300.0,
@@ -300,18 +300,18 @@ def load_app_settings(project_root: Path = PROJECT_ROOT) -> AppSettings:
             max(int(llm.get("max_history_turns", 3)), 0),
             8,
         ),
-        llm_max_response_characters=min(
-            max(int(llm.get("max_response_characters", 320)), 32),
-            1000,
+        llm_short_context_tokens=min(
+            max(int(llm.get("short_context_tokens", 2048)), 1024),
+            4096,
         ),
-        llm_max_tokens=min(max(int(llm.get("max_tokens", 160)), 16), 512),
-        llm_complete_max_response_characters=min(
-            max(int(llm.get("complete_max_response_characters", 2200)), 320),
-            3200,
+        llm_complete_context_tokens=min(
+            max(int(llm.get("complete_context_tokens", 4096)), 2048),
+            8192,
         ),
+        llm_max_tokens=min(max(int(llm.get("max_tokens", 256)), 64), 512),
         llm_complete_max_tokens=min(
-            max(int(llm.get("complete_max_tokens", 640)), 160),
-            768,
+            max(int(llm.get("complete_max_tokens", 1536)), 512),
+            2048,
         ),
         llm_temperature=min(
             max(float(llm.get("temperature", 0.4)), 0.0),

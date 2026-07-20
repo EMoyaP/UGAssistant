@@ -5,15 +5,18 @@ policy:
 models:
   - logical_name: llm
     engine: ollama
-    file_name: "qwen3:1.7b"
-    version_or_tag: "qwen3:1.7b"
+    file_name: "qwen3:4b-instruct"
+    version_or_tag: "qwen3:4b-instruct"
     sha256: "PENDING_NOT_DOWNLOADED"
-    official_url: "https://ollama.com/library/qwen3"
-    size: "managed_by_ollama"
+    official_url: "https://ollama.com/library/qwen3:4b-instruct"
+    size: "2.5 GB managed_by_ollama"
     execution:
       host: "127.0.0.1"
       api: "local_ollama"
-      context_limit: "limited_for_raspberry_pi"
+      short_context_tokens: 2048
+      complete_context_tokens: 4096
+      short_thinking: false
+      complete_thinking: true
       max_concurrent_heavy_inferences: 1
   - logical_name: stt
     engine: whisper.cpp

@@ -34,15 +34,15 @@ class ConversationServiceTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await service.answer("Hello", "en")
 
-    async def test_complete_response_uses_a_detailed_prompt_and_larger_limit(self) -> None:
+    async def test_complete_response_uses_thinking_larger_context_and_is_not_truncated(self) -> None:
         response = " ".join(["explicacion"] * 90)
         adapter = SimulatedLLMAdapter(response=response)
         service = ConversationService(
             adapter,
             inference_lock=asyncio.Lock(),
-            max_response_characters=80,
+            short_context_tokens=2048,
+            complete_context_tokens=4096,
             max_tokens=32,
-            complete_max_response_characters=1200,
             complete_max_tokens=384,
         )
 
@@ -50,6 +50,22 @@ class ConversationServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(answer, response)
         self.assertIn("respuesta completa", adapter.messages[-1][0].content)
+        self.assertEqual(adapter.thinking_modes, [True])
+        self.assertEqual(adapter.context_windows, [4096])
+
+    async def test_short_response_disables_thinking_and_uses_short_context(self) -> None:
+        adapter = SimulatedLLMAdapter(response="Respuesta breve.")
+        service = ConversationService(
+            adapter,
+            inference_lock=asyncio.Lock(),
+            short_context_tokens=2048,
+            complete_context_tokens=4096,
+        )
+
+        await service.answer("Resume esto", "es", "short")
+
+        self.assertEqual(adapter.thinking_modes, [False])
+        self.assertEqual(adapter.context_windows, [2048])
 
     async def test_rejects_unknown_response_detail(self) -> None:
         service = ConversationService(

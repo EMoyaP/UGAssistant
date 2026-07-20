@@ -28,9 +28,9 @@ La aplicacion incluye:
   automatica de idioma/voz y repeticion de la frase reconocida.
 - Turno por palabra de activacion local: `hola` inicia el turno en espanol y
   `salut` lo inicia en frances; despues escucha la pregunta y la procesa localmente.
-- LLM local mediante Ollama y el modelo bloqueado `qwen3:1.7b`, con historial
-  limitado, una unica inferencia pesada simultanea y eleccion verbal entre
-  respuesta corta o completa antes de cada consulta.
+- LLM local mediante Ollama y el modelo bloqueado `qwen3:4b-instruct`, con
+  historial limitado, una unica inferencia pesada simultanea y eleccion verbal
+  entre respuesta corta o completa antes de cada consulta.
 - Sintesis de texto local con Piper y las voces bloqueadas
   `es_ES-davefx-medium` y `fr_FR-tom-medium`.
 - Reproduccion por el altavoz seleccionado, volumen y velocidad configurables,
@@ -63,7 +63,7 @@ Cuando no queda ninguno, la siguiente cuenta vuelve a ser el temporizador 1.
 
 Los runtimes de Piper y whisper.cpp, las voces TTS en castellano y frances y
 `ggml-base.bin` ya estan instalados para desarrollo en Windows. Ollama y
-`qwen3:1.7b` se instalan deliberadamente mediante un paso explicito.
+`qwen3:4b-instruct` se instalan deliberadamente mediante un paso explicito.
 
 El proyecto toma como referencia la experiencia de BillAI Bass, sustituyendo
 el pez y los componentes mecanicos por el avatar de pantalla. La arquitectura
@@ -117,6 +117,19 @@ winget install --id Ollama.Ollama --exact
 Ollama descarga el modelo una vez desde su registro y lo sirve despues por la
 API local `127.0.0.1:11434`; UGAssistant no usa una API de IA externa durante
 el funcionamiento.
+
+### Perfiles de respuesta local
+
+La respuesta `corta` usa `qwen3:4b-instruct` con razonamiento desactivado y
+2.048 tokens de contexto para conservar una interaccion agil. La respuesta
+`completa` anuncia que necesitara algo mas de tiempo, activa el razonamiento
+del modelo y usa 4.096 tokens de contexto. El razonamiento interno de Ollama no
+se muestra, no se reproduce y no se conserva en el historial.
+
+La aplicacion ya no recorta el texto final por numero de caracteres. El limite
+de salida de 1.536 tokens del perfil completo es una proteccion tecnica de
+memoria y tiempo en Raspberry Pi; el modelo debe cerrar la respuesta de forma
+natural. Puede ajustarse en `config/app.yaml` si el hardware final lo permite.
 
 Instala el runtime bloqueado de whisper.cpp y descarga explicitamente el
 modelo STT multilingue bloqueado:
@@ -177,7 +190,9 @@ segundo flujo de audio.
 Con microfono y altavoz activos, el modo normal queda esperando `hola` o
 `salut`. Tras reconocerlos, saluda en espanol o frances, espera una segunda
 frase y pregunta si se desea una respuesta `corta` o `completa` antes de enviar
-la consulta a `qwen3:1.7b` por la API local de Ollama. La respuesta se
+la consulta a `qwen3:4b-instruct` por la API local de Ollama. Si se elige una
+respuesta completa, antes anuncia que tardara un poco mas y activa el modo de
+razonamiento local. La respuesta se
 reproduce con DaveFX o Tom segun el idioma transcrito. Si la
 primera frase no contiene una de esas palabras, se descarta. Cada captura se
 cierra tras dos segundos de silencio y vuelve a reposo si no hay activacion o
@@ -461,7 +476,7 @@ $env:PYTHONPATH = "src"
 ```
 
 La comprobacion informa sobre plataforma, Python, Ollama, dispositivos de
-camara y audio, OpenCV, whisper.cpp, Ollama, el modelo `qwen3:1.7b` instalado y
+camara y audio, OpenCV, whisper.cpp, Ollama, el modelo `qwen3:4b-instruct` instalado y
 espacio libre.
 
 ## Pruebas
@@ -477,7 +492,7 @@ Las pruebas unitarias usan adaptadores simulados y no necesitan abrir la camara 
 
 `config/models.lock.yaml` conserva exactamente:
 
-- LLM: Ollama `qwen3:1.7b`.
+- LLM: Ollama `qwen3:4b-instruct`.
 - STT: whisper.cpp `ggml-base.bin`.
 - TTS espanol: Piper `es_ES-davefx-medium.onnx`.
 - TTS frances: Piper `fr_FR-tom-medium.onnx`.
@@ -488,7 +503,7 @@ Las pruebas unitarias usan adaptadores simulados y no necesitan abrir la camara 
 Los tres modelos de vision, las voces TTS DaveFX y Tom y el modelo STT estan
 descargados y verificados. El modelo LLM se instala explicitamente con
 `scripts/download_models.py --model llm`; su contenido y digest se gestionan
-localmente por Ollama bajo la etiqueta bloqueada `qwen3:1.7b`.
+localmente por Ollama bajo la etiqueta bloqueada `qwen3:4b-instruct`.
 `config/runtimes.lock.yaml` fija Piper `2023.11.14-2` y whisper.cpp `v1.8.1`
 para Windows AMD64 y Linux ARM64; no se sustituye ningun modelo.
 

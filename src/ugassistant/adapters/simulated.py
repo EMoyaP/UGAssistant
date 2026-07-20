@@ -24,6 +24,8 @@ class SimulatedLLMAdapter:
     def __init__(self, response: str = "Respuesta simulada local.") -> None:
         self.response = response
         self.messages: list[tuple[LLMMessage, ...]] = []
+        self.thinking_modes: list[bool] = []
+        self.context_windows: list[int] = []
 
     async def status(self) -> LLMEngineStatus:
         return LLMEngineStatus(True, True, "ready")
@@ -34,9 +36,13 @@ class SimulatedLLMAdapter:
         *,
         max_tokens: int,
         temperature: float,
+        think: bool,
+        context_tokens: int,
     ) -> str:
         del max_tokens, temperature
         self.messages.append(messages)
+        self.thinking_modes.append(think)
+        self.context_windows.append(context_tokens)
         return self.response
 
     async def generate(self, prompt: str) -> str:

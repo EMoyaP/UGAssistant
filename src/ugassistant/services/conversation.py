@@ -35,22 +35,22 @@ class ConversationService:
         *,
         inference_lock: asyncio.Lock,
         max_history_turns: int = 3,
-        max_response_characters: int = 320,
-        max_tokens: int = 160,
-        complete_max_response_characters: int = 2200,
-        complete_max_tokens: int = 640,
+        short_context_tokens: int = 2048,
+        complete_context_tokens: int = 4096,
+        max_tokens: int = 256,
+        complete_max_tokens: int = 1536,
         temperature: float = 0.4,
         on_status: ConversationStatusCallback | None = None,
     ) -> None:
         self._adapter = adapter
         self._inference_lock = inference_lock
         self._max_history_messages = max(0, max_history_turns) * 2
-        self._max_response_characters = max(32, max_response_characters)
-        self._max_tokens = max(16, max_tokens)
-        self._complete_max_response_characters = max(
-            self._max_response_characters,
-            complete_max_response_characters,
+        self._short_context_tokens = min(max(short_context_tokens, 1024), 4096)
+        self._complete_context_tokens = min(
+            max(complete_context_tokens, self._short_context_tokens),
+            8192,
         )
+        self._max_tokens = max(16, max_tokens)
         self._complete_max_tokens = max(self._max_tokens, complete_max_tokens)
         self._temperature = min(max(temperature, 0.0), 2.0)
         self._on_status = on_status
@@ -118,8 +118,10 @@ class ConversationService:
                         tuple(messages),
                         max_tokens=self._max_tokens_for(response_detail),
                         temperature=self._temperature,
+                        think=response_detail == "complete",
+                        context_tokens=self._context_tokens_for(response_detail),
                     )
-                answer = self._compact_response(raw_answer, response_detail)
+                answer = self._clean_response(raw_answer)
                 if not answer:
                     raise RuntimeError("Ollama returned an empty response")
                 self._history.extend(
@@ -162,26 +164,29 @@ class ConversationService:
                 return (
                     "Tu es UGAssistant, un assistant local. Reponds uniquement en "
                     "francais avec une reponse complete, exacte et pratique. Inclus le "
-                    "contexte et les etapes necessaires pour resoudre la demande. "
-                    "Utilise des phrases claires sans markdown, asterisques, titres ou "
-                    "listes a puces et evite les details "
-                    "inventes."
+                    "contexte et les etapes necessaires pour resoudre la demande. Ne "
+                    "donne pas ton raisonnement interne. Si une information est incertaine, "
+                    "dis-le au lieu de l'inventer. Utilise des phrases claires sans markdown, "
+                    "asterisques, titres ou listes a puces. Termine naturellement la reponse."
                 )
             return (
                 "Eres UGAssistant, un asistente local. Responde solo en espanol con "
                     "una respuesta completa, exacta y practica. Incluye el contexto y los "
-                    "pasos necesarios para resolver la duda. Usa frases claras sin markdown, "
-                    "asteriscos, almohadillas o listas con guiones y evita inventar detalles. "
-                    "Cierra la respuesta con una conclusion clara."
+                "pasos necesarios para resolver la duda. No muestres tu razonamiento "
+                "interno. Si un dato es incierto, indicalo en vez de inventarlo. Usa frases "
+                "claras sin markdown, asteriscos, almohadillas ni listas con guiones. "
+                "Termina la respuesta de forma natural."
             )
         if language == "fr":
             return (
                 "Tu es UGAssistant, un assistant local. Reponds uniquement en "
-                "francais, de maniere utile et breve, en deux phrases maximum, sans markdown."
+                "francais, de maniere utile et breve, en deux phrases maximum, sans "
+                "markdown. N'invente pas de faits et ne montre pas ton raisonnement interne."
             )
         return (
             "Eres UGAssistant, un asistente local. Responde solo en espanol, "
-            "de forma util y breve, en un maximo de dos frases y sin markdown."
+            "de forma util y breve, en un maximo de dos frases y sin markdown. "
+            "No inventes datos ni muestres tu razonamiento interno."
         )
 
     def _max_tokens_for(self, response_detail: ResponseDetail) -> int:
@@ -191,21 +196,15 @@ class ConversationService:
             else self._max_tokens
         )
 
-    def _compact_response(
-        self,
-        response: str,
-        response_detail: ResponseDetail,
-    ) -> str:
-        compact = " ".join(self._plain_text(response).split())
-        max_characters = (
-            self._complete_max_response_characters
+    def _context_tokens_for(self, response_detail: ResponseDetail) -> int:
+        return (
+            self._complete_context_tokens
             if response_detail == "complete"
-            else self._max_response_characters
+            else self._short_context_tokens
         )
-        if len(compact) <= max_characters:
-            return compact
-        shortened = compact[:max_characters].rsplit(" ", 1)[0]
-        return shortened.rstrip(".,;: ") + "."
+
+    def _clean_response(self, response: str) -> str:
+        return " ".join(self._plain_text(response).split())
 
     @staticmethod
     def _plain_text(response: str) -> str:

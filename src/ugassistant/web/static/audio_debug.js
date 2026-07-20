@@ -285,7 +285,7 @@ function applyRecognitionStatus(payload) {
 
 function applyLLMStatus(payload) {
   latestLLMStatus = payload;
-  llmModel.textContent = payload.model_available ? "qwen3:1.7b" : "No disponible";
+  llmModel.textContent = payload.model_available ? "qwen3:4b-instruct" : "No disponible";
   const phaseLabels = {
     ready: "Ollama listo",
     unavailable: "Ollama o modelo no disponible",

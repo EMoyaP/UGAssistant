@@ -189,6 +189,8 @@ class LLMAdapter(Protocol):
         *,
         max_tokens: int,
         temperature: float,
+        think: bool,
+        context_tokens: int,
     ) -> str:
         ...
 

@@ -104,6 +104,10 @@ class VoiceAssistantServiceTests(unittest.IsolatedAsyncioTestCase):
             ("Quieres una respuesta corta o completa?", "es_ES-davefx-medium"),
             speech_adapter.synthesized,
         )
+        self.assertIn(
+            ("De acuerdo, tardare un poco mas en prepararla.", "es_ES-davefx-medium"),
+            speech_adapter.synthesized,
+        )
         await assistant.shutdown()
         await audio.shutdown()
 

@@ -255,6 +255,8 @@ class VoiceAssistantService:
                     response_detail=response_detail,
                 )
                 return
+            if response_detail == "complete":
+                await self._announce_complete_response(question.language)
             await self._set_status(
                 busy=True,
                 phase="thinking",
@@ -1052,6 +1054,23 @@ class VoiceAssistantService:
         except NoSpeechDetectedError:
             return "complete"
         return self._response_detail(choice.text)
+
+    async def _announce_complete_response(self, language: str) -> None:
+        locale = "fr_FR" if language.casefold() == "fr" else "es_ES"
+        message = (
+            "D'accord, cela me prendra un peu plus de temps a preparer."
+            if locale == "fr_FR"
+            else "De acuerdo, tardare un poco mas en prepararla."
+        )
+        await self._speech_service.select_language(locale)
+        await self._set_status(
+            busy=True,
+            phase="announcing_complete_response",
+            detail="complete_response_selected",
+            language=language,
+            response_detail="complete",
+        )
+        await self._speech_service.speak(message)
 
     @classmethod
     def _response_detail(cls, transcript: str) -> str:
