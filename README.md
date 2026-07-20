@@ -350,7 +350,7 @@ misma ruta de ejecucion en Windows x64 y Linux ARM64.
 
 La cara y las manos comparten el mismo fotograma de la webcam. Para priorizar
 la voz en Raspberry Pi, el perfil es adaptativo: reposo a 1 FPS, rostro presente
-a 2 FPS y gesto de silencio a 5 FPS mientras habla o reproduce musica. Durante
+a 2 FPS y gestos a 5 FPS mientras escucha, habla o reproduce musica. Durante
 transcripcion y razonamiento se conserva la captura a 1 FPS, pero se suspenden
 YuNet y HandPose para que Whisper y Ollama tengan prioridad. Las manos se
 ejecutan cada tres fotogramas cuando el perfil las necesita y se limita la salida

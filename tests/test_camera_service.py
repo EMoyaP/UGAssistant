@@ -91,7 +91,7 @@ class CameraServiceTests(unittest.IsolatedAsyncioTestCase):
         await service.set_activity(AssistantState.PERSON_DETECTED)
         self.assertEqual(service.perception_profile, CameraActivityProfile.PERSON_DETECTED)
         self.assertEqual(service.target_fps, 2)
-        self.assertFalse(adapter.hand_detection_enabled)
+        self.assertTrue(adapter.hand_detection_enabled)
         self.assertTrue(adapter.face_detection_enabled)
 
         await service.set_activity(AssistantState.TRANSCRIBING)
@@ -99,6 +99,11 @@ class CameraServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service.target_fps, 1)
         self.assertFalse(adapter.hand_detection_enabled)
         self.assertFalse(adapter.face_detection_enabled)
+
+        await service.set_activity(AssistantState.LISTENING)
+        self.assertEqual(service.perception_profile, CameraActivityProfile.GESTURE)
+        self.assertEqual(service.target_fps, 5)
+        self.assertTrue(adapter.hand_detection_enabled)
 
         await service.set_activity(AssistantState.SPEAKING)
         self.assertEqual(service.perception_profile, CameraActivityProfile.GESTURE)

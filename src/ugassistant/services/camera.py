@@ -158,7 +158,10 @@ class CameraService:
         *,
         music_playing: bool = False,
     ) -> None:
-        if music_playing or state == AssistantState.SPEAKING:
+        if music_playing or state in {
+            AssistantState.LISTENING,
+            AssistantState.SPEAKING,
+        }:
             activity_profile = CameraActivityProfile.GESTURE
         elif state == AssistantState.PERSON_DETECTED:
             activity_profile = CameraActivityProfile.PERSON_DETECTED
@@ -431,6 +434,7 @@ class CameraService:
         self._effective_profile = effective_profile
         self._target_fps = self._profile_fps[effective_profile]
         hands_enabled = effective_profile in {
+            CameraActivityProfile.PERSON_DETECTED,
             CameraActivityProfile.GESTURE,
             CameraActivityProfile.DEBUG,
         }
