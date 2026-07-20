@@ -159,6 +159,25 @@
             </div>
           </section>
 
+          <section class="device-setting" aria-labelledby="modelsSettingTitle">
+            <div class="device-setting-heading">
+              <div>
+                <h3 id="modelsSettingTitle">Modelos</h3>
+                <p id="modelsUpdateStatus" aria-live="polite">Sin comprobar</p>
+              </div>
+            </div>
+            <div class="model-update-actions">
+              <button id="updateModelsButton" type="button" class="primary-button">
+                Buscar y actualizar
+              </button>
+            </div>
+            <p class="model-update-note">
+              Gemma se actualiza solo si coincide con el SHA-256 bloqueado. Las voces,
+              vision y reconocimiento se verifican; sus nuevas versiones llegan con una
+              actualizacion de UGAssistant.
+            </p>
+          </section>
+
           <section class="device-setting" aria-labelledby="cameraSettingTitle">
             <div class="device-setting-heading">
               <div>
@@ -251,6 +270,6 @@
       </form>
     </dialog>
 
-    <script src="/static/app.js?v=28" defer></script>
+    <script src="/static/app.js?v=29" defer></script>
   </body>
 </html>

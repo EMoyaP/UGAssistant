@@ -36,6 +36,8 @@ const stateButtons = Array.from(document.querySelectorAll("[data-next-state]"));
 const wakeSpanishInput = document.querySelector("#wakeSpanishInput");
 const wakeFrenchInput = document.querySelector("#wakeFrenchInput");
 const saveProfileButton = document.querySelector("#saveProfileButton");
+const updateModelsButton = document.querySelector("#updateModelsButton");
+const modelsUpdateStatus = document.querySelector("#modelsUpdateStatus");
 const conversationTurns = document.querySelector("#conversationTurns");
 const timerStack = document.querySelector("#timerStack");
 
@@ -415,6 +417,26 @@ async function shutdownSystem() {
     connectionText.textContent = "No se pudo cerrar";
     shutdownButton.disabled = false;
     console.error(error);
+  }
+}
+
+async function updateModels() {
+  updateModelsButton.disabled = true;
+  modelsUpdateStatus.textContent = "Comprobando modelos...";
+  try {
+    const response = await fetch("/api/models/update", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || `Model update failed: ${response.status}`);
+    }
+    const verified = (payload.fixed_models || [])
+      .filter((model) => model.state === "verified").length;
+    modelsUpdateStatus.textContent = `${payload.message} ${verified} modelos fijos verificados.`;
+  } catch (error) {
+    modelsUpdateStatus.textContent = "No se pudieron comprobar los modelos.";
+    console.error(error);
+  } finally {
+    updateModelsButton.disabled = false;
   }
 }
 
@@ -971,6 +993,7 @@ settingsDialog.addEventListener("click", (event) => {
 
 shutdownButton.addEventListener("click", shutdownSystem);
 saveProfileButton.addEventListener("click", saveAssistantProfile);
+updateModelsButton.addEventListener("click", updateModels);
 
 window.addEventListener("pointermove", handlePointerMove, { passive: true });
 window.addEventListener("pointerdown", registerActivity, { passive: true });

@@ -43,6 +43,7 @@ from ugassistant.services.audio import (
 )
 from ugassistant.services.camera import CameraService, CameraStatus
 from ugassistant.services.conversation import ConversationService, ConversationStatus
+from ugassistant.services.model_updates import ModelUpdateBusyError, ModelUpdateService
 from ugassistant.services.recognition import (
     RecognitionBusyError,
     RecognitionStatus,
@@ -107,6 +108,7 @@ def create_app(
     stt_adapter: STTAdapter | None = None,
     preference_store: YAMLPreferenceStore | None = None,
     llm_adapter: LLMAdapter | None = None,
+    model_update_service: ModelUpdateService | None = None,
 ) -> FastAPI:
     settings = settings or load_app_settings()
     state_machine = AssistantStateMachine()
@@ -534,6 +536,26 @@ def create_app(
         repeat_penalty=settings.llm_repeat_penalty,
         on_status=on_conversation_status,
     )
+    try:
+        model_lock = load_model_lock(settings.project_root)
+    except FileNotFoundError:
+        # Test and embedded runtimes can provide an isolated project root.
+        model_lock = {"models": []}
+    model_update_service = model_update_service or ModelUpdateService(
+        model_lock=model_lock,
+        ollama_base_url=settings.llm_base_url,
+        llm_model=settings.llm_model,
+        fixed_model_paths={
+            "stt": settings.stt_model_path,
+            "tts": settings.tts_model_path,
+            "tts_config": settings.tts_config_path,
+            "tts_fr": settings.tts_french_model_path,
+            "tts_fr_config": settings.tts_french_config_path,
+            "face_detection": settings.camera_model_path,
+            "palm_detection": settings.hand_palm_model_path,
+            "hand_pose": settings.hand_pose_model_path,
+        },
+    )
 
     async def on_voice_assistant_status(status: VoiceAssistantStatus) -> None:
         await assistant_manager.broadcast(status.to_dict())
@@ -698,6 +720,7 @@ def create_app(
     app.state.voice_assistant_service = voice_assistant_service
     app.state.timer_service = timer_service
     app.state.preference_store = preference_store
+    app.state.model_update_service = model_update_service
     app.state.shutdown_callback = None
 
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -746,6 +769,18 @@ def create_app(
             "spanish_wake_word": current.spanish_wake_word,
             "french_wake_word": current.french_wake_word,
         }
+
+    @app.post("/api/models/update")
+    async def update_models() -> dict[str, object]:
+        try:
+            result = await model_update_service.check_and_update()
+            await conversation_service.refresh()
+            return result
+        except ModelUpdateBusyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.exception("model_update_failed")
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     @app.put("/api/assistant/profile")
     async def update_assistant_profile(
