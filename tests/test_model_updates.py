@@ -7,6 +7,7 @@ import threading
 import unittest
 
 from fastapi import FastAPI
+import yaml
 
 from ugassistant.adapters.simulated import (
     SimulatedAudioAdapter,
@@ -15,11 +16,15 @@ from ugassistant.adapters.simulated import (
 )
 from ugassistant.api.app import create_app
 from ugassistant.config import AppSettings
-from ugassistant.services.model_updates import ModelUpdateService
+from ugassistant.services.model_updates import ModelUpdateService, OllamaManifest
 
 
 LOCKED_DIGEST = "a" * 64
 NEW_DIGEST = "b" * 64
+
+
+def manifest(digest: str, size_bytes: int = 123) -> OllamaManifest:
+    return OllamaManifest(digest=digest, size_bytes=size_bytes)
 
 
 def model_lock() -> dict[str, object]:
@@ -52,7 +57,7 @@ class ModelUpdateServiceTests(unittest.IsolatedAsyncioTestCase):
             llm_model="gemma3:4b",
             fixed_model_paths={},
             local_digest_loader=lambda _tag: LOCKED_DIGEST,
-            remote_digest_loader=lambda _url, _tag: LOCKED_DIGEST,
+            remote_manifest_loader=lambda _url, _tag: manifest(LOCKED_DIGEST),
             pull_model=pulled.append,
         )
 
@@ -75,7 +80,7 @@ class ModelUpdateServiceTests(unittest.IsolatedAsyncioTestCase):
             llm_model="gemma3:4b",
             fixed_model_paths={},
             local_digest_loader=lambda _tag: installed_digest,
-            remote_digest_loader=lambda _url, _tag: LOCKED_DIGEST,
+            remote_manifest_loader=lambda _url, _tag: manifest(LOCKED_DIGEST),
             pull_model=pull,
         )
 
@@ -84,31 +89,66 @@ class ModelUpdateServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], "updated")
         self.assertTrue(result["llm"]["updated"])  # type: ignore[index]
 
-    async def test_reports_new_remote_revision_without_replacing_the_lock(self) -> None:
-        pulled: list[str] = []
-        service = ModelUpdateService(
-            model_lock=model_lock(),
-            ollama_base_url="http://127.0.0.1:11434",
-            llm_model="gemma3:4b",
-            fixed_model_paths={},
-            local_digest_loader=lambda _tag: LOCKED_DIGEST,
-            remote_digest_loader=lambda _url, _tag: NEW_DIGEST,
-            pull_model=pulled.append,
-        )
+    async def test_updates_the_lock_before_pulling_a_new_remote_revision(self) -> None:
+        installed_digest = LOCKED_DIGEST
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            lock_path = Path(temporary_directory) / "models.lock.yaml"
+            lock_path.write_text(yaml.safe_dump(model_lock(), sort_keys=False), encoding="utf-8")
 
-        result = await service.check_and_update()
+            def pull(_tag: str) -> None:
+                nonlocal installed_digest
+                installed_digest = NEW_DIGEST
 
-        self.assertEqual(result["status"], "update_available")
-        self.assertEqual(pulled, [])
+            service = ModelUpdateService(
+                model_lock=model_lock(),
+                ollama_base_url="http://127.0.0.1:11434",
+                llm_model="gemma3:4b",
+                fixed_model_paths={},
+                model_lock_path=lock_path,
+                local_digest_loader=lambda _tag: installed_digest,
+                remote_manifest_loader=lambda _url, _tag: manifest(NEW_DIGEST, 987),
+                pull_model=pull,
+            )
+
+            result = await service.check_and_update()
+            persisted = yaml.safe_load(lock_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(result["status"], "updated")
+        self.assertTrue(result["llm"]["updated"])  # type: ignore[index]
+        self.assertEqual(persisted["models"][0]["sha256"], NEW_DIGEST)
+        self.assertEqual(persisted["models"][0]["size"], "987 bytes managed_by_ollama")
+
+    async def test_restores_the_previous_lock_when_the_update_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            lock_path = Path(temporary_directory) / "models.lock.yaml"
+            original = yaml.safe_dump(model_lock(), sort_keys=False)
+            lock_path.write_text(original, encoding="utf-8")
+            service = ModelUpdateService(
+                model_lock=model_lock(),
+                ollama_base_url="http://127.0.0.1:11434",
+                llm_model="gemma3:4b",
+                fixed_model_paths={},
+                model_lock_path=lock_path,
+                local_digest_loader=lambda _tag: LOCKED_DIGEST,
+                remote_manifest_loader=lambda _url, _tag: manifest(NEW_DIGEST, 987),
+                pull_model=lambda _tag: (_ for _ in ()).throw(RuntimeError("network")),
+            )
+
+            result = await service.check_and_update()
+
+            self.assertEqual(lock_path.read_text(encoding="utf-8"), original)
+
+        self.assertEqual(result["status"], "error")
+        self.assertFalse(result["llm"]["updated"])  # type: ignore[index]
 
     async def test_rejects_parallel_update_requests(self) -> None:
         started = threading.Event()
         release = threading.Event()
 
-        def remote(_url: str, _tag: str) -> str:
+        def remote(_url: str, _tag: str) -> OllamaManifest:
             started.set()
             release.wait()
-            return LOCKED_DIGEST
+            return manifest(LOCKED_DIGEST)
 
         service = ModelUpdateService(
             model_lock=model_lock(),
@@ -116,7 +156,7 @@ class ModelUpdateServiceTests(unittest.IsolatedAsyncioTestCase):
             llm_model="gemma3:4b",
             fixed_model_paths={},
             local_digest_loader=lambda _tag: LOCKED_DIGEST,
-            remote_digest_loader=remote,
+            remote_manifest_loader=remote,
             pull_model=lambda _tag: None,
         )
         first = asyncio.create_task(service.check_and_update())

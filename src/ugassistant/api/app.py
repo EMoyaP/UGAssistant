@@ -545,6 +545,7 @@ def create_app(
         model_lock=model_lock,
         ollama_base_url=settings.llm_base_url,
         llm_model=settings.llm_model,
+        model_lock_path=settings.project_root / "config" / "models.lock.yaml",
         fixed_model_paths={
             "stt": settings.stt_model_path,
             "tts": settings.tts_model_path,

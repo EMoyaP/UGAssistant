@@ -118,13 +118,12 @@ Ollama descarga el modelo una vez desde su registro y lo sirve despues por la
 API local `127.0.0.1:11434`; UGAssistant no usa una API de IA externa durante
 el funcionamiento.
 
-En Configuracion, la seccion `Modelos` incluye `Buscar y actualizar`. Consulta
-el manifiesto oficial de Ollama y, si la revision remota coincide con el
-SHA-256 bloqueado, instala o repara Gemma de forma explicita. Si Ollama publica
-un digest distinto, el asistente lo informa pero no lo descarga: primero debe
-llegar una actualizacion de UGAssistant que revise y fije el nuevo modelo. Los
-modelos de voz, reconocimiento y vision se verifican por SHA-256 y no se
-sustituyen automaticamente.
+En Configuracion, la seccion `Modelos` incluye `Buscar y actualizar`. Al
+pulsarlo, consulta el manifiesto oficial de Ollama, actualiza primero el
+SHA-256 y el tamano de Gemma en `config/models.lock.yaml` y despues descarga la
+revision nueva. Si la descarga o la verificacion fallan, restaura el bloqueo
+anterior. No hay descargas en segundo plano. Los modelos de voz, reconocimiento
+y vision se verifican por SHA-256 y no se sustituyen automaticamente.
 
 ### Perfiles de respuesta local
 
