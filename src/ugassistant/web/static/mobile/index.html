@@ -5,14 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#101315">
     <title>UGAssistant</title>
-    <link rel="stylesheet" href="./assets/mobile.css">
+    <link rel="stylesheet" href="./assets/mobile.css?v=2">
   </head>
   <body>
     <main class="mobile-shell">
       <header><span>UGAssistant</span><strong id="mobileStatus">Conectando</strong></header>
       <section class="avatar-stage" aria-live="polite">
         <div id="mobileAvatar" class="mobile-avatar state-idle">
-          <span class="eye left"></span><span class="eye right"></span><span class="mouth"></span>
+          <span class="signal-ring ring-one"></span>
+          <span class="signal-ring ring-two"></span>
+          <div class="head">
+            <span class="brow left-brow"></span>
+            <span class="brow right-brow"></span>
+            <span class="eye left-eye"><i></i></span>
+            <span class="eye right-eye"><i></i></span>
+            <span class="mouth"></span>
+          </div>
+          <span class="listening-headphones"><i></i><i></i></span>
+          <svg class="thinking-hand" viewBox="5 18 21 18" focusable="false" aria-hidden="true">
+            <defs>
+              <linearGradient id="mobileThinkingSkin" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffe994"></stop>
+                <stop offset="0.48" stop-color="#ffd35f"></stop>
+                <stop offset="1" stop-color="#f7b83f"></stop>
+              </linearGradient>
+            </defs>
+            <g transform="translate(31 0) scale(-1 1)">
+              <path class="thinking-hand-shape" d="M17.276 35.149s1.265-.411 1.429-1.352c.173-.972-.624-1.167-.624-1.167s1.041-.208 1.172-1.376c.123-1.101-.861-1.363-.861-1.363s.97-.4 1.016-1.539c.038-.959-.995-1.428-.995-1.428s5.038-1.221 5.556-1.341c.516-.12 1.32-.615 1.069-1.694-.249-1.08-1.204-1.118-1.697-1.003-.494.115-6.744 1.566-8.9 2.068l-1.439.334c-.54.127-.785-.11-.404-.512.508-.536.833-1.129.946-2.113.119-1.035-.232-2.313-.433-2.809-.374-.921-1.005-1.649-1.734-1.899-1.137-.39-1.945.321-1.542 1.561.604 1.854.208 3.375-.833 4.293-2.449 2.157-3.588 3.695-2.83 6.973.828 3.575 4.377 5.876 7.952 5.048l3.152-.681z"></path>
+              <path class="thinking-hand-crease" d="M17.05 27.05c-1.18.43-2.31.7-3.4.82M17.92 29.95c-.93.36-1.84.56-2.72.62"></path>
+            </g>
+          </svg>
+          <span class="body-glow"></span>
         </div>
       </section>
       <section class="conversation" aria-live="polite">
