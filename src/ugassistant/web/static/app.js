@@ -40,6 +40,10 @@ const modelsUpdateDetails = document.querySelector("#modelsUpdateDetails");
 const updateAllButton = document.querySelector("#updateAllButton");
 const updatesStatus = document.querySelector("#updatesStatus");
 const applicationUpdateDetails = document.querySelector("#applicationUpdateDetails");
+const createMobileAccessButton = document.querySelector("#createMobileAccessButton");
+const mobileAccessStatus = document.querySelector("#mobileAccessStatus");
+const mobileAccessQr = document.querySelector("#mobileAccessQr");
+const mobileDevices = document.querySelector("#mobileDevices");
 const conversationTurns = document.querySelector("#conversationTurns");
 const timerStack = document.querySelector("#timerStack");
 
@@ -633,6 +637,44 @@ async function updateAll() {
   }
 }
 
+function renderMobileDevices(devices) {
+  if (!devices.length) { mobileDevices.hidden = true; mobileDevices.replaceChildren(); return; }
+  const table = document.createElement("table"); table.className = "model-update-table";
+  const body = document.createElement("tbody");
+  devices.forEach((device) => {
+    const row = document.createElement("tr");
+    const label = document.createElement("td"); label.textContent = device.label;
+    const state = document.createElement("td"); state.textContent = device.revoked ? "Revocado" : (device.connected ? "Conectado" : "Autorizado");
+    const lastSeen = document.createElement("td");
+    lastSeen.textContent = device.last_seen ? new Date(device.last_seen).toLocaleString() : "Sin uso";
+    const action = document.createElement("td");
+    if (!device.revoked) { const button = document.createElement("button"); button.type = "button"; button.className = "mobile-device-action"; button.textContent = "Revocar"; button.addEventListener("click", () => revokeMobileDevice(device.access_id)); action.append(button); }
+    row.append(label, state, lastSeen, action); body.append(row);
+  });
+  table.append(body); mobileDevices.replaceChildren(table); mobileDevices.hidden = false;
+}
+
+async function loadMobileDevices() {
+  const response = await fetch("/api/mobile/devices"); const payload = await response.json();
+  if (!response.ok) { throw new Error(payload.detail || "mobile_devices_unavailable"); }
+  renderMobileDevices(payload.devices || []);
+  mobileAccessStatus.textContent = (payload.devices || []).some((device) => !device.revoked) ? "Acceso local activo" : "Sin dispositivos";
+}
+
+async function createMobileAccess() {
+  createMobileAccessButton.disabled = true;
+  try {
+    const response = await fetch("/api/mobile/access", { method: "POST" }); const payload = await response.json();
+    if (!response.ok) { throw new Error(payload.detail || "mobile_access_unavailable"); }
+    mobileAccessQr.innerHTML = payload.qr_svg; mobileAccessQr.hidden = false; mobileAccessStatus.textContent = "Reinicio requerido"; renderMobileDevices(payload.devices || []);
+  } catch (error) { console.error(error); mobileAccessStatus.textContent = "No disponible"; } finally { createMobileAccessButton.disabled = false; }
+}
+
+async function revokeMobileDevice(accessId) {
+  await fetch(`/api/mobile/devices/${encodeURIComponent(accessId)}/revoke`, { method: "POST" });
+  mobileAccessQr.hidden = true; await loadMobileDevices();
+}
+
 function connectStateSocket() {
   const scheme = window.location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${scheme}://${window.location.host}/ws/state`);
@@ -1187,6 +1229,7 @@ settingsDialog.addEventListener("click", (event) => {
 shutdownButton.addEventListener("click", shutdownSystem);
 saveProfileButton.addEventListener("click", saveAssistantProfile);
 updateAllButton.addEventListener("click", updateAll);
+createMobileAccessButton.addEventListener("click", createMobileAccess);
 
 window.addEventListener("pointermove", handlePointerMove, { passive: true });
 window.addEventListener("pointerdown", registerActivity, { passive: true });
@@ -1199,6 +1242,10 @@ loadCameraStatus().catch(() => {
 });
 loadCameraDevices().catch(() => {
   cameraSelect.disabled = true;
+});
+loadMobileDevices().catch((error) => {
+  mobileAccessStatus.textContent = "No disponible";
+  console.error(error);
 });
 loadAudioDevices().catch((error) => {
   micSelect.disabled = true;

@@ -12,5 +12,8 @@ tools/whisper/
 *.log
 data/preferences.yaml
 data/spotify.tokens.json
+data/mobile_access.sqlite3
+data/mobile-tls/
+*.egg-info/
 data/model-staging/
 data/model-backups/

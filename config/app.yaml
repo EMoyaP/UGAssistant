@@ -94,3 +94,8 @@ development:
   simulated_adapters: true
 persistence:
   preferences_path: "data/preferences.yaml"
+  mobile_access_path: "data/mobile_access.sqlite3"
+mobile:
+  port: 8443
+  tls_certificate_path: "data/mobile-tls/certificate.pem"
+  tls_key_path: "data/mobile-tls/key.pem"

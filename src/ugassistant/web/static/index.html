@@ -159,6 +159,20 @@
             </div>
           </section>
 
+          <section class="device-setting" aria-labelledby="mobileAccessTitle">
+            <div class="device-setting-heading">
+              <div>
+                <h3 id="mobileAccessTitle">Acceso movil</h3>
+                <p id="mobileAccessStatus">Sin dispositivos</p>
+              </div>
+            </div>
+            <div class="model-update-actions">
+              <button id="createMobileAccessButton" type="button" class="primary-button">Generar acceso</button>
+            </div>
+            <div id="mobileAccessQr" class="mobile-access-qr" hidden></div>
+            <div id="mobileDevices" class="model-update-details" hidden></div>
+          </section>
+
           <section class="device-setting" aria-labelledby="updatesSettingTitle">
             <div class="device-setting-heading">
               <div>
@@ -267,6 +281,6 @@
       </form>
     </dialog>
 
-    <script src="/static/app.js?v=35" defer></script>
+    <script src="/static/app.js?v=36" defer></script>
   </body>
 </html>

@@ -110,6 +110,9 @@ El perfil Windows debe permitir ejecutar el mismo modo limitado de Raspberry.
 * Proporcionar controles para desactivar cámara y micrófono.
 * No implementar reconocimiento de identidad facial.
 * No realizar inferencias sobre emociones o atributos personales.
+* El acceso movil es opcional, solo por HTTPS dentro de la red local y mediante
+  credenciales revocables. No publicar el servicio en Internet ni reenviar sus
+  datos a terceros.
 
 ## Calidad
 

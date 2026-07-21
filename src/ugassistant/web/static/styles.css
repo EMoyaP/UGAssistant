@@ -414,6 +414,19 @@ h1 {
   border-radius: 6px;
 }
 
+.mobile-access-qr {
+  display: grid;
+  place-items: center;
+  margin-top: 12px;
+  padding: 12px;
+  background: #f7f7f7;
+  border-radius: 6px;
+}
+
+.mobile-access-qr svg { width: 180px; height: 180px; }
+
+.mobile-device-action { border: 0; background: transparent; color: var(--error); font: inherit; cursor: pointer; }
+
 .model-update-table {
   width: 100%;
   border-collapse: collapse;

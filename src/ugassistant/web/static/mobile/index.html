@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#101315">
+    <title>UGAssistant</title>
+    <link rel="stylesheet" href="./assets/mobile.css">
+  </head>
+  <body>
+    <main class="mobile-shell">
+      <header><span>UGAssistant</span><strong id="mobileStatus">Conectando</strong></header>
+      <section class="avatar-stage" aria-live="polite">
+        <div id="mobileAvatar" class="mobile-avatar state-idle">
+          <span class="eye left"></span><span class="eye right"></span><span class="mouth"></span>
+        </div>
+      </section>
+      <section class="conversation" aria-live="polite">
+        <p id="transcript"></p>
+        <p id="answer"></p>
+      </section>
+      <section class="devices">
+        <span id="microphoneLabel">Micrófono</span><span id="speakerLabel">Salida del dispositivo</span>
+      </section>
+      <button id="talkButton" type="button" disabled>Hablar</button>
+    </main>
+    <script src="./assets/mobile.js" defer></script>
+  </body>
+</html>

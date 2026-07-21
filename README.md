@@ -136,6 +136,21 @@ software, reinicia UGAssistant al finalizar para cargar el nuevo codigo.
 
 La operacion no modifica dependencias, preferencias ni datos de usuario.
 
+### Acceso movil local
+
+`Acceso movil` crea una credencial persistente por dispositivo y un QR de
+emparejamiento. Las credenciales se guardan como hashes revocables en
+`data/mobile_access.sqlite3`; el telefono conserva su credencial solo en el
+almacenamiento local del navegador. No se guardan audio ni conversaciones. El
+asistente inicia un segundo servidor HTTPS local en el puerto `8443` despues
+de reiniciarse. En Configuracion, genera el QR, reinicia UGAssistant y abrelo
+desde el telefono conectado a la misma red Wi-Fi. La primera conexion desde
+Android puede requerir aceptar el certificado local generado por UGAssistant.
+El navegador solicita el permiso de microfono al pulsar `Hablar`, muestra los
+dispositivos de entrada/salida que expone Android y reproduce Piper mediante
+la salida predeterminada del telefono. Revocar un dispositivo invalida su
+credencial inmediatamente.
+
 ### Perfiles de respuesta local
 
 La respuesta `corta` usa `gemma3:4b` con 2.048 tokens de contexto, hasta tres

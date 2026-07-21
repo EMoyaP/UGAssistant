@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 import threading
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
 from typing import AsyncIterator
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -49,6 +50,9 @@ from ugassistant.services.application_updates import (
 from ugassistant.services.camera import CameraService, CameraStatus
 from ugassistant.services.conversation import ConversationService, ConversationStatus
 from ugassistant.services.fixed_model_updates import FixedModelUpdateService
+from ugassistant.services.mobile_access import MobileAccessDeniedError, MobileAccessStore
+from ugassistant.services.mobile_assistant import MobileAssistantService, MobileAudioError
+from ugassistant.services.mobile_tls import ensure_mobile_certificate
 from ugassistant.services.model_updates import ModelUpdateService
 from ugassistant.services.recognition import (
     RecognitionBusyError,
@@ -81,6 +85,13 @@ class AssistantProfileRequest(BaseModel):
     french_wake_word: str
 
 
+class MobileSessionRequest(BaseModel):
+    access_id: str
+    token: str
+    device_id: str
+    device_label: str = "Android"
+
+
 class StateConnectionManager:
     def __init__(self) -> None:
         self._connections: set[WebSocket] = set()
@@ -106,6 +117,15 @@ class StateConnectionManager:
                 await self.disconnect(websocket)
 
 
+def local_network_address() -> str:
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+        try:
+            probe.connect(("192.0.2.1", 80))
+            return str(probe.getsockname()[0])
+        except OSError:
+            return "127.0.0.1"
+
+
 def create_app(
     settings: AppSettings | None = None,
     camera_adapter: CameraAdapter | None = None,
@@ -127,7 +147,9 @@ def create_app(
     conversation_manager = StateConnectionManager()
     assistant_manager = StateConnectionManager()
     static_dir = Path(__file__).resolve().parents[1] / "web" / "static"
+    mobile_static_dir = static_dir / "mobile"
     platform_info = detect_platform()
+    mobile_access_store = MobileAccessStore(settings.mobile_access_path)
     preference_store = preference_store or YAMLPreferenceStore(settings.preferences_path)
     try:
         preferences = preference_store.load()
@@ -543,6 +565,27 @@ def create_app(
         repeat_penalty=settings.llm_repeat_penalty,
         on_status=on_conversation_status,
     )
+    def create_mobile_conversation() -> ConversationService:
+        return ConversationService(
+            llm_adapter,
+            inference_lock=heavy_inference_lock,
+            max_history_turns=settings.llm_max_history_turns,
+            short_context_tokens=settings.llm_short_context_tokens,
+            complete_context_tokens=settings.llm_complete_context_tokens,
+            max_tokens=settings.llm_max_tokens,
+            complete_max_tokens=settings.llm_complete_max_tokens,
+            temperature=settings.llm_temperature,
+            repeat_penalty=settings.llm_repeat_penalty,
+        )
+
+    mobile_assistant_service = MobileAssistantService(
+        access_store=mobile_access_store,
+        stt_adapter=stt_adapter,
+        tts_adapter=tts_adapter,
+        conversation_factory=create_mobile_conversation,
+        inference_lock=heavy_inference_lock,
+        speech_rate=(preferences.speech_rate if preferences is not None else settings.tts_speech_rate),
+    )
     try:
         model_lock = load_model_lock(settings.project_root)
     except FileNotFoundError:
@@ -824,6 +867,7 @@ def create_app(
         await camera_service.shutdown()
 
     app = FastAPI(title="UGAssistant", version="0.9.0", lifespan=lifespan)
+    mobile_app = FastAPI(title="UGAssistant Mobile", docs_url=None, redoc_url=None)
     app.state.settings = settings
     app.state.state_machine = state_machine
     app.state.manager = state_manager
@@ -842,9 +886,55 @@ def create_app(
     app.state.timer_service = timer_service
     app.state.preference_store = preference_store
     app.state.model_update_service = model_update_service
+    app.state.mobile_access_store = mobile_access_store
+    app.state.mobile_app = mobile_app
     app.state.shutdown_callback = None
 
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    mobile_app.mount("/assets", StaticFiles(directory=mobile_static_dir), name="mobile-assets")
+    app.mount("/mobile", mobile_app)
+
+    @mobile_app.get("/")
+    async def mobile_index() -> FileResponse:
+        return FileResponse(mobile_static_dir / "index.html")
+
+    @mobile_app.post("/api/session")
+    async def mobile_session(request: MobileSessionRequest) -> dict[str, object]:
+        try:
+            device = await asyncio.to_thread(
+                mobile_access_store.authorize,
+                request.access_id,
+                request.token,
+                request.device_id,
+                request.device_label,
+            )
+        except MobileAccessDeniedError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        return device.to_dict()
+
+    @mobile_app.post("/api/ask")
+    async def mobile_ask(request: Request) -> dict[str, object]:
+        access_id = request.headers.get("X-UG-Access", "")
+        token = request.headers.get("X-UG-Token", "")
+        device_id = request.headers.get("X-UG-Device", "")
+        device_label = request.headers.get("X-UG-Device-Label", "Android")
+        if not access_id or not token or not device_id:
+            raise HTTPException(status_code=401, detail="mobile_credentials_missing")
+        try:
+            return await mobile_assistant_service.ask(
+                access_id=access_id,
+                token=token,
+                device_id=device_id,
+                device_label=device_label,
+                wav_bytes=await request.body(),
+            )
+        except MobileAccessDeniedError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except MobileAudioError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.exception("mobile_ask_failed")
+            raise HTTPException(status_code=503, detail="mobile_assistant_unavailable") from exc
 
     @app.get("/")
     async def index() -> FileResponse:
@@ -890,6 +980,53 @@ def create_app(
             "spanish_wake_word": current.spanish_wake_word,
             "french_wake_word": current.french_wake_word,
         }
+
+    @app.get("/api/mobile/devices")
+    async def get_mobile_devices() -> dict[str, object]:
+        return {
+            "devices": await asyncio.to_thread(mobile_access_store.list_devices),
+            "mobile_port": settings.mobile_port,
+            "running_after_restart": await asyncio.to_thread(mobile_access_store.has_active_access),
+        }
+
+    @app.post("/api/mobile/access")
+    async def create_mobile_access() -> dict[str, object]:
+        address = local_network_address()
+        await asyncio.to_thread(
+            ensure_mobile_certificate,
+            settings.mobile_tls_certificate_path,
+            settings.mobile_tls_key_path,
+            [address, "127.0.0.1"],
+        )
+        issued = await asyncio.to_thread(
+            mobile_access_store.issue,
+            f"https://{address}:{settings.mobile_port}",
+        )
+        try:
+            import qrcode
+            from qrcode.image.svg import SvgPathImage
+        except ImportError as exc:
+            raise HTTPException(status_code=503, detail="mobile_qr_dependency_missing") from exc
+        from io import BytesIO
+
+        image = qrcode.make(issued["url"], image_factory=SvgPathImage)
+        buffer = BytesIO()
+        image.save(buffer)
+        return {
+            "access_id": issued["access_id"],
+            "url": issued["url"],
+            "qr_svg": buffer.getvalue().decode("utf-8"),
+            "restart_required": True,
+            "devices": await asyncio.to_thread(mobile_access_store.list_devices),
+        }
+
+    @app.post("/api/mobile/devices/{access_id}/revoke")
+    async def revoke_mobile_device(access_id: str) -> dict[str, object]:
+        try:
+            await asyncio.to_thread(mobile_access_store.revoke, access_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="mobile_device_not_found") from exc
+        return {"devices": await asyncio.to_thread(mobile_access_store.list_devices)}
 
     @app.post("/api/models/update")
     async def update_models() -> dict[str, object]:
