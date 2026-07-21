@@ -518,6 +518,9 @@ async function updateModels() {
     if (!response.ok) {
       throw new Error(payload.detail || `Model update failed: ${response.status}`);
     }
+    if (!payload.state) {
+      throw new Error("server_restart_required");
+    }
     while (payload.state === "running") {
       modelsUpdateStatus.textContent = payload.message;
       renderModelUpdateDetails(payload);
@@ -531,7 +534,14 @@ async function updateModels() {
     modelsUpdateStatus.textContent = payload.message;
     renderModelUpdateDetails(payload);
   } catch (error) {
-    modelsUpdateStatus.textContent = "No se pudieron comprobar los modelos.";
+    const detail = error instanceof Error ? error.message : "";
+    if (detail === "server_restart_required" || detail.startsWith("Model status failed: 404")) {
+      modelsUpdateStatus.textContent = "Reinicia UGAssistant para activar el seguimiento de modelos.";
+    } else if (detail === "model_update_in_progress") {
+      modelsUpdateStatus.textContent = "Ya hay una actualizacion de modelos en curso.";
+    } else {
+      modelsUpdateStatus.textContent = "No se pudieron comprobar los modelos.";
+    }
     console.error(error);
   } finally {
     updateModelsButton.disabled = false;
