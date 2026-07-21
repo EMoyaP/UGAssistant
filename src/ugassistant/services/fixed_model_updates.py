@@ -50,6 +50,11 @@ class FixedModelUpdateService:
         try:
             self._functional_check(set())
         except Exception as exc:
+            self._notify(
+                "fixed_models",
+                "error",
+                "No se pudo validar la instalacion actual",
+            )
             return [
                 {
                     "logical_name": "fixed_models",
@@ -82,6 +87,17 @@ class FixedModelUpdateService:
                 try:
                     self._downloader(source, candidate)
                 except Exception as exc:
+                    self._notify(
+                        logical_name,
+                        "error",
+                        "No se pudo descargar la revision oficial",
+                        installed_version=installed_version,
+                    )
+                    self._notify(
+                        "fixed_models",
+                        "error",
+                        "No se completaron las descargas de modelos fijos",
+                    )
                     return [
                         *results,
                         {
@@ -112,6 +128,11 @@ class FixedModelUpdateService:
                 )
 
             if not candidates:
+                self._notify(
+                    "fixed_models",
+                    "up_to_date",
+                    "Todos los modelos fijos estan al dia",
+                )
                 return results
             changed = {str(model["logical_name"]) for model, *_ in candidates}
             lock_backup = self._model_lock_path.read_bytes()
@@ -159,6 +180,11 @@ class FixedModelUpdateService:
                             "rolled_back",
                             "Prueba fallida; se ha restaurado la version anterior",
                         )
+                self._notify(
+                    "fixed_models",
+                    "rolled_back",
+                    "Se han restaurado los modelos fijos anteriores",
+                )
                 return rolled_back
             completed = [
                 *results,
@@ -174,6 +200,14 @@ class FixedModelUpdateService:
                     "Actualizacion terminada" if state == "updated" else "Archivo reparado",
                     found_version=f"sha256:{digest[:16]}",
                 )
+            group_state = "updated" if any(
+                item.get("state") in {"updated", "repaired"} for item in completed
+            ) else "up_to_date"
+            self._notify(
+                "fixed_models",
+                group_state,
+                "Modelos fijos actualizados" if group_state == "updated" else "Todos los modelos fijos estan al dia",
+            )
             return completed
 
     def _notify(

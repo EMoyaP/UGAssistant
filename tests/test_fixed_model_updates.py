@@ -154,6 +154,33 @@ class FixedModelUpdateServiceTests(unittest.TestCase):
 
         self.assertEqual(result[0]["state"], "error")
 
+    def test_reports_when_all_fixed_models_are_already_current(self) -> None:
+        current = b"current-model"
+        events: list[dict[str, object]] = []
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            target = root / "models" / "stt" / "ggml-base.bin"
+            target.parent.mkdir(parents=True)
+            target.write_bytes(current)
+            lock_path = root / "config" / "models.lock.yaml"
+            lock_path.parent.mkdir()
+            lock_path.write_text(
+                yaml.safe_dump(lock_for(current), sort_keys=False), encoding="utf-8"
+            )
+            service = FixedModelUpdateService(
+                project_root=root,
+                model_lock_path=lock_path,
+                model_paths={"stt": target},
+                downloader=lambda _url, destination: destination.write_bytes(current),
+                functional_check=lambda _changed: None,
+                on_progress=events.append,
+            )
+
+            service.check_and_update()
+
+        self.assertEqual(events[-1]["logical_name"], "fixed_models")
+        self.assertEqual(events[-1]["state"], "up_to_date")
+
 
 if __name__ == "__main__":
     unittest.main()

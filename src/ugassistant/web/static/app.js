@@ -443,7 +443,7 @@ const modelUpdateStates = {
   backing_up: "Guardando copia",
   installing: "Instalando",
   validating: "Probando",
-  up_to_date: "Actualizado",
+  up_to_date: "Al dia",
   updated: "Actualizado",
   repaired: "Reparado",
   rolled_back: "Restaurado",
