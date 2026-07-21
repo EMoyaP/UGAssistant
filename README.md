@@ -119,11 +119,16 @@ API local `127.0.0.1:11434`; UGAssistant no usa una API de IA externa durante
 el funcionamiento.
 
 En Configuracion, la seccion `Modelos` incluye `Buscar y actualizar`. Al
-pulsarlo, consulta el manifiesto oficial de Ollama, actualiza primero el
-SHA-256 y el tamano de Gemma en `config/models.lock.yaml` y despues descarga la
-revision nueva. Si la descarga o la verificacion fallan, restaura el bloqueo
-anterior. No hay descargas en segundo plano. Los modelos de voz, reconocimiento
-y vision se verifican por SHA-256 y no se sustituyen automaticamente.
+pulsarlo, actualiza Gemma desde el manifiesto oficial de Ollama y consulta las
+fuentes oficiales aprobadas para STT, TTS y vision. Cada candidato se descarga
+temporalmente, se activa de forma atomica y se prueba en el equipo local:
+Whisper y Piper procesan una frase de prueba en castellano y frances, y OpenCV
+carga los tres modelos de vision. Gemma conserva una etiqueta local de ultima
+version funcional y ejecuta una generacion minima antes de aceptarse. Si falla
+una descarga, carga o prueba, se restauran los archivos, Gemma y
+`models.lock.yaml` de la ultima version funcional.
+No hay descargas en segundo plano; Windows y Raspberry Pi ejecutan sus propias
+pruebas con sus runtimes respectivos.
 
 ### Perfiles de respuesta local
 

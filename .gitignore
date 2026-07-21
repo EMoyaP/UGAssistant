@@ -12,3 +12,5 @@ tools/whisper/
 *.log
 data/preferences.yaml
 data/spotify.tokens.json
+data/model-staging/
+data/model-backups/

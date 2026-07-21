@@ -26,6 +26,7 @@ models:
     version_or_tag: "base multilingual ggml@17993a254ac4e9db7642a261cf53af3dc446145c"
     sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe"
     official_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
+    update_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
     size: "147951465 bytes"
     execution:
       language: "auto"
@@ -41,6 +42,7 @@ models:
     version_or_tag: "v1.0.0"
     sha256: "6658b03b1a6c316ee4c265a9896abc1393353c2d9e1bca7d66c2c442e222a917"
     official_url: "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx"
+    update_url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx"
     size: "63201294 bytes"
     execution:
       speaker: "default"
@@ -54,6 +56,7 @@ models:
     version_or_tag: "v1.0.0"
     sha256: "0e0dda87c732f6f38771ff274a6380d9252f327dca77aa2963d5fbdf9ec54842"
     official_url: "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json"
+    update_url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json"
     size: "4817 bytes"
     execution:
       model: "es_ES-davefx-medium.onnx"
@@ -63,6 +66,7 @@ models:
     version_or_tag: "main@5b44ec7bab7c5822cfec48fbd5aa99db71a823d6"
     sha256: "bf65074ccdeeeeaa832e75edb1c0a513c01c9a972bdf085ff8a6e71ea234fd41"
     official_url: "https://huggingface.co/rhasspy/piper-voices/resolve/5b44ec7bab7c5822cfec48fbd5aa99db71a823d6/fr/fr_FR/tom/medium/fr_FR-tom-medium.onnx"
+    update_url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/tom/medium/fr_FR-tom-medium.onnx"
     size: "63511038 bytes"
     execution:
       speaker: "default"
@@ -76,6 +80,7 @@ models:
     version_or_tag: "main@5b44ec7bab7c5822cfec48fbd5aa99db71a823d6"
     sha256: "2f7f885ad5a0aad802e3cc24e4f57239febdcb142b4876de5d238094674361cc"
     official_url: "https://huggingface.co/rhasspy/piper-voices/resolve/5b44ec7bab7c5822cfec48fbd5aa99db71a823d6/fr/fr_FR/tom/medium/fr_FR-tom-medium.onnx.json"
+    update_url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/tom/medium/fr_FR-tom-medium.onnx.json"
     size: "4959 bytes"
     execution:
       model: "fr_FR-tom-medium.onnx"
@@ -85,6 +90,7 @@ models:
     version_or_tag: "2023mar"
     sha256: "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
     official_url: "https://github.com/opencv/opencv_zoo/raw/refs/heads/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
+    update_url: "https://github.com/opencv/opencv_zoo/raw/refs/heads/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
     size: "232589 bytes"
     execution:
       input_size: [320, 320]
@@ -97,6 +103,7 @@ models:
     version_or_tag: "2023feb"
     sha256: "78ff51c38496b7fc8b8ebdb6cc8c1abb02fa6c38427c6848254cdaba57fcce7c"
     official_url: "https://github.com/opencv/opencv_zoo/raw/refs/heads/main/models/palm_detection_mediapipe/palm_detection_mediapipe_2023feb.onnx"
+    update_url: "https://github.com/opencv/opencv_zoo/raw/refs/heads/main/models/palm_detection_mediapipe/palm_detection_mediapipe_2023feb.onnx"
     size: "3905734 bytes"
     execution:
       input_size: [192, 192]
@@ -110,6 +117,7 @@ models:
     version_or_tag: "2023feb"
     sha256: "db0898ae717b76b075d9bf563af315b29562e11f8df5027a1ef07b02bef6d81c"
     official_url: "https://github.com/opencv/opencv_zoo/raw/refs/heads/main/models/handpose_estimation_mediapipe/handpose_estimation_mediapipe_2023feb.onnx"
+    update_url: "https://github.com/opencv/opencv_zoo/raw/refs/heads/main/models/handpose_estimation_mediapipe/handpose_estimation_mediapipe_2023feb.onnx"
     size: "4099621 bytes"
     execution:
       input_size: [224, 224]

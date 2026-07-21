@@ -429,9 +429,14 @@ async function updateModels() {
     if (!response.ok) {
       throw new Error(payload.detail || `Model update failed: ${response.status}`);
     }
-    const verified = (payload.fixed_models || [])
-      .filter((model) => model.state === "verified").length;
-    modelsUpdateStatus.textContent = `${payload.message} ${verified} modelos fijos verificados.`;
+    const fixedModels = payload.fixed_models || [];
+    const healthy = fixedModels.filter(
+      (model) => ["verified", "up_to_date", "updated"].includes(model.state),
+    ).length;
+    const restored = fixedModels.filter((model) => model.state === "rolled_back").length;
+    modelsUpdateStatus.textContent = restored
+      ? `${payload.message} Se restauraron ${restored} modelos.`
+      : `${payload.message} ${healthy} modelos fijos correctos.`;
   } catch (error) {
     modelsUpdateStatus.textContent = "No se pudieron comprobar los modelos.";
     console.error(error);

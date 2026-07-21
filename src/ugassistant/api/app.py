@@ -43,6 +43,7 @@ from ugassistant.services.audio import (
 )
 from ugassistant.services.camera import CameraService, CameraStatus
 from ugassistant.services.conversation import ConversationService, ConversationStatus
+from ugassistant.services.fixed_model_updates import FixedModelUpdateService
 from ugassistant.services.model_updates import ModelUpdateBusyError, ModelUpdateService
 from ugassistant.services.recognition import (
     RecognitionBusyError,
@@ -556,6 +557,20 @@ def create_app(
             "palm_detection": settings.hand_palm_model_path,
             "hand_pose": settings.hand_pose_model_path,
         },
+        fixed_model_updater=FixedModelUpdateService(
+            project_root=settings.project_root,
+            model_lock_path=settings.project_root / "config" / "models.lock.yaml",
+            model_paths={
+                "stt": settings.stt_model_path,
+                "tts": settings.tts_model_path,
+                "tts_config": settings.tts_config_path,
+                "tts_fr": settings.tts_french_model_path,
+                "tts_fr_config": settings.tts_french_config_path,
+                "face_detection": settings.camera_model_path,
+                "palm_detection": settings.hand_palm_model_path,
+                "hand_pose": settings.hand_pose_model_path,
+            },
+        ),
     )
 
     async def on_voice_assistant_status(status: VoiceAssistantStatus) -> None:

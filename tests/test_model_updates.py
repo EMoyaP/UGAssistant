@@ -141,6 +141,47 @@ class ModelUpdateServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], "error")
         self.assertFalse(result["llm"]["updated"])  # type: ignore[index]
 
+    async def test_restores_the_last_known_good_ollama_model_when_the_check_fails(self) -> None:
+        installed_digest = LOCKED_DIGEST
+        backups: list[tuple[str, str]] = []
+        restores: list[tuple[str, str]] = []
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            lock_path = Path(temporary_directory) / "models.lock.yaml"
+            original = yaml.safe_dump(model_lock(), sort_keys=False)
+            lock_path.write_text(original, encoding="utf-8")
+
+            def pull(_tag: str) -> None:
+                nonlocal installed_digest
+                installed_digest = NEW_DIGEST
+
+            def restore(source: str, destination: str) -> None:
+                nonlocal installed_digest
+                restores.append((source, destination))
+                installed_digest = LOCKED_DIGEST
+
+            service = ModelUpdateService(
+                model_lock=model_lock(),
+                ollama_base_url="http://127.0.0.1:11434",
+                llm_model="gemma3:4b",
+                fixed_model_paths={},
+                model_lock_path=lock_path,
+                local_digest_loader=lambda _tag: installed_digest,
+                remote_manifest_loader=lambda _url, _tag: manifest(NEW_DIGEST, 987),
+                pull_model=pull,
+                backup_model=lambda source, destination: backups.append((source, destination)),
+                restore_model=restore,
+                functional_check=lambda _tag: (_ for _ in ()).throw(RuntimeError("bad model")),
+            )
+
+            result = await service.check_and_update()
+
+            self.assertEqual(lock_path.read_text(encoding="utf-8"), original)
+
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(installed_digest, LOCKED_DIGEST)
+        self.assertEqual(backups, [("gemma3:4b", "ugassistant-gemma3-4b-last-known-good")])
+        self.assertEqual(restores, [("ugassistant-gemma3-4b-last-known-good", "gemma3:4b")])
+
     async def test_rejects_parallel_update_requests(self) -> None:
         started = threading.Event()
         release = threading.Event()
