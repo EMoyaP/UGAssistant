@@ -75,7 +75,7 @@ class MobileAccessStore:
     def list_devices(self) -> list[dict[str, object]]:
         with self._connection() as connection:
             rows = connection.execute(
-                "SELECT access_id, label, last_seen, revoked FROM mobile_devices ORDER BY created_at DESC"
+                "SELECT access_id, label, last_seen, revoked FROM mobile_devices WHERE revoked = 0 ORDER BY created_at DESC"
             ).fetchall()
         return [MobileDevice(*row).to_dict() for row in rows]
 
@@ -89,7 +89,7 @@ class MobileAccessStore:
     def revoke(self, access_id: str) -> None:
         with self._connection() as connection:
             updated = connection.execute(
-                "UPDATE mobile_devices SET revoked = 1 WHERE access_id = ?",
+                "DELETE FROM mobile_devices WHERE access_id = ?",
                 (access_id,),
             ).rowcount
         if not updated:
@@ -111,6 +111,7 @@ class MobileAccessStore:
                 )
                 """
             )
+            connection.execute("DELETE FROM mobile_devices WHERE revoked = 1")
 
     def _connection(self) -> sqlite3.Connection:
         return sqlite3.connect(self._database_path)

@@ -40,6 +40,7 @@ class MobileAccessStoreTests(unittest.TestCase):
                 )
 
             store.revoke(issued["access_id"])
+            self.assertEqual(store.list_devices(), [])
             with self.assertRaises(MobileAccessDeniedError):
                 store.authorize(
                     issued["access_id"], issued["token"], "phone-a", "Pixel"

@@ -149,7 +149,7 @@ Android puede requerir aceptar el certificado local generado por UGAssistant.
 El navegador solicita el permiso de microfono al pulsar `Hablar`, muestra los
 dispositivos de entrada/salida que expone Android y reproduce Piper mediante
 la salida predeterminada del telefono. Revocar un dispositivo invalida su
-credencial inmediatamente.
+credencial inmediatamente y retira su registro de la lista.
 
 ### Perfiles de respuesta local
 
