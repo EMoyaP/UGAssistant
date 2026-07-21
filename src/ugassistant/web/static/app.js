@@ -38,6 +38,7 @@ const wakeFrenchInput = document.querySelector("#wakeFrenchInput");
 const saveProfileButton = document.querySelector("#saveProfileButton");
 const updateModelsButton = document.querySelector("#updateModelsButton");
 const modelsUpdateStatus = document.querySelector("#modelsUpdateStatus");
+const modelsUpdateDetails = document.querySelector("#modelsUpdateDetails");
 const conversationTurns = document.querySelector("#conversationTurns");
 const timerStack = document.querySelector("#timerStack");
 
@@ -420,23 +421,115 @@ async function shutdownSystem() {
   }
 }
 
+const modelLabels = {
+  llm: "Gemma",
+  stt: "Whisper",
+  tts: "Piper ES",
+  tts_config: "Config. Piper ES",
+  tts_fr: "Piper FR",
+  tts_fr_config: "Config. Piper FR",
+  face_detection: "YuNet",
+  palm_detection: "Palmas",
+  hand_pose: "Manos",
+  fixed_models: "Modelos fijos",
+};
+
+const modelUpdateStates = {
+  checking: "Comprobando",
+  downloading: "Descargando",
+  backing_up: "Guardando copia",
+  installing: "Instalando",
+  validating: "Probando",
+  up_to_date: "Actualizado",
+  updated: "Actualizado",
+  repaired: "Reparado",
+  rolled_back: "Restaurado",
+  error: "Error",
+  unavailable: "No disponible",
+  verified: "Verificado",
+  mismatch: "No coincide",
+  not_managed: "No gestionado",
+  missing: "No instalado",
+};
+
+function formatModelVersion(value) {
+  if (!value) {
+    return "-";
+  }
+  const version = String(value);
+  if (/^[a-f0-9]{64}$/i.test(version)) {
+    return `sha256:${version.slice(0, 16)}`;
+  }
+  return version;
+}
+
+function renderModelUpdateDetails(snapshot) {
+  const entries = Object.values(snapshot.models || {});
+  if (!entries.length) {
+    modelsUpdateDetails.hidden = true;
+    modelsUpdateDetails.replaceChildren();
+    return;
+  }
+  const table = document.createElement("table");
+  table.className = "model-update-table";
+  const header = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  ["Modelo", "Instalada", "Encontrada", "Estado"].forEach((label) => {
+    const cell = document.createElement("th");
+    cell.textContent = label;
+    headerRow.append(cell);
+  });
+  header.append(headerRow);
+  const body = document.createElement("tbody");
+  entries.forEach((entry) => {
+    const row = document.createElement("tr");
+    const logicalName = String(entry.logical_name || "fixed_models");
+    const modelCell = document.createElement("td");
+    modelCell.textContent = modelLabels[logicalName] || logicalName;
+    const installedCell = document.createElement("td");
+    installedCell.textContent = formatModelVersion(entry.installed_version);
+    const foundCell = document.createElement("td");
+    foundCell.textContent = formatModelVersion(entry.found_version);
+    const stateCell = document.createElement("td");
+    const state = String(entry.state || "checking");
+    stateCell.className = "model-update-state";
+    stateCell.dataset.state = state;
+    stateCell.textContent = modelUpdateStates[state] || state;
+    row.append(modelCell, installedCell, foundCell, stateCell);
+    body.append(row);
+  });
+  table.append(header, body);
+  modelsUpdateDetails.replaceChildren(table);
+  modelsUpdateDetails.hidden = false;
+}
+
+function waitForModelUpdateProgress() {
+  return new Promise((resolve) => window.setTimeout(resolve, 500));
+}
+
 async function updateModels() {
   updateModelsButton.disabled = true;
-  modelsUpdateStatus.textContent = "Comprobando modelos...";
+  modelsUpdateStatus.textContent = "Preparando la comprobacion...";
+  modelsUpdateDetails.hidden = true;
+  modelsUpdateDetails.replaceChildren();
   try {
     const response = await fetch("/api/models/update", { method: "POST" });
-    const payload = await response.json();
+    let payload = await response.json();
     if (!response.ok) {
       throw new Error(payload.detail || `Model update failed: ${response.status}`);
     }
-    const fixedModels = payload.fixed_models || [];
-    const healthy = fixedModels.filter(
-      (model) => ["verified", "up_to_date", "updated"].includes(model.state),
-    ).length;
-    const restored = fixedModels.filter((model) => model.state === "rolled_back").length;
-    modelsUpdateStatus.textContent = restored
-      ? `${payload.message} Se restauraron ${restored} modelos.`
-      : `${payload.message} ${healthy} modelos fijos correctos.`;
+    while (payload.state === "running") {
+      modelsUpdateStatus.textContent = payload.message;
+      renderModelUpdateDetails(payload);
+      await waitForModelUpdateProgress();
+      const statusResponse = await fetch("/api/models/update/status");
+      payload = await statusResponse.json();
+      if (!statusResponse.ok) {
+        throw new Error(payload.detail || `Model status failed: ${statusResponse.status}`);
+      }
+    }
+    modelsUpdateStatus.textContent = payload.message;
+    renderModelUpdateDetails(payload);
   } catch (error) {
     modelsUpdateStatus.textContent = "No se pudieron comprobar los modelos.";
     console.error(error);

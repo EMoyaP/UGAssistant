@@ -24,12 +24,20 @@ class FixedModelUpdateService:
         model_paths: Mapping[str, Path],
         downloader: Callable[[str, Path], None] | None = None,
         functional_check: Callable[[set[str]], None] | None = None,
+        on_progress: Callable[[dict[str, object]], None] | None = None,
     ) -> None:
         self._project_root = project_root
         self._model_lock_path = model_lock_path
         self._model_paths = dict(model_paths)
         self._downloader = downloader or self._download
         self._functional_check = functional_check or self._run_functional_checks
+        self._on_progress = on_progress
+
+    def set_progress_listener(
+        self,
+        listener: Callable[[dict[str, object]], None] | None,
+    ) -> None:
+        self._on_progress = listener
 
     def check_and_update(self) -> list[dict[str, object]]:
         lock = self._load_lock()
@@ -38,6 +46,7 @@ class FixedModelUpdateService:
             for model in lock.get("models", [])
             if isinstance(model, dict) and model.get("logical_name") != "llm"
         ]
+        self._notify("fixed_models", "validating", "Validando los modelos instalados")
         try:
             self._functional_check(set())
         except Exception as exc:
@@ -59,9 +68,17 @@ class FixedModelUpdateService:
                 target = self._model_paths.get(logical_name)
                 if target is None:
                     results.append({"logical_name": logical_name, "state": "not_managed"})
+                    self._notify(logical_name, "not_managed", "No esta gestionado")
                     continue
                 candidate = staging / str(model["file_name"])
                 source = str(model.get("update_url") or model["official_url"])
+                installed_version = str(model.get("version_or_tag", "desconocida"))
+                self._notify(
+                    logical_name,
+                    "downloading",
+                    "Descargando revision oficial",
+                    installed_version=installed_version,
+                )
                 try:
                     self._downloader(source, candidate)
                 except Exception as exc:
@@ -74,12 +91,20 @@ class FixedModelUpdateService:
                         },
                     ]
                 digest = self._file_sha256(candidate)
+                found_version = f"sha256:{digest[:16]}"
                 locked_digest = str(model.get("sha256", "")).lower()
                 target_digest = (
                     self._file_sha256(target) if target.is_file() else None
                 )
                 if digest == locked_digest and target_digest == locked_digest:
                     results.append({"logical_name": logical_name, "state": "up_to_date"})
+                    self._notify(
+                        logical_name,
+                        "up_to_date",
+                        "Ya esta actualizado",
+                        installed_version=installed_version,
+                        found_version=found_version,
+                    )
                     continue
                 state = "updated" if digest != locked_digest else "repaired"
                 candidates.append(
@@ -92,16 +117,31 @@ class FixedModelUpdateService:
             lock_backup = self._model_lock_path.read_bytes()
             backups = self._backup_current_files(candidates)
             try:
+                for model, _candidate, digest, _size, _state in candidates:
+                    self._notify(
+                        str(model["logical_name"]),
+                        "installing",
+                        "Activando la revision descargada",
+                        installed_version=str(model.get("version_or_tag", "desconocida")),
+                        found_version=f"sha256:{digest[:16]}",
+                    )
                 self._write_updated_lock(lock, candidates)
                 for model, candidate, _digest, _size, _state in candidates:
                     target = self._model_paths[str(model["logical_name"])]
                     target.parent.mkdir(parents=True, exist_ok=True)
                     os.replace(candidate, target)
+                for model, _candidate, digest, _size, _state in candidates:
+                    self._notify(
+                        str(model["logical_name"]),
+                        "validating",
+                        "Probando la revision instalada",
+                        found_version=f"sha256:{digest[:16]}",
+                    )
                 self._functional_check(changed)
             except Exception as exc:
                 self._restore_files(backups)
                 self._restore_lock(lock_backup)
-                return [
+                rolled_back = [
                     *results,
                     *[
                         {
@@ -112,13 +152,51 @@ class FixedModelUpdateService:
                         for model, *_ in candidates
                     ],
                 ]
-            return [
+                for item in rolled_back:
+                    if item.get("state") == "rolled_back":
+                        self._notify(
+                            str(item["logical_name"]),
+                            "rolled_back",
+                            "Prueba fallida; se ha restaurado la version anterior",
+                        )
+                return rolled_back
+            completed = [
                 *results,
                 *[
                     {"logical_name": str(model["logical_name"]), "state": state}
                     for model, _candidate, _digest, _size, state in candidates
                 ],
             ]
+            for model, _candidate, digest, _size, state in candidates:
+                self._notify(
+                    str(model["logical_name"]),
+                    state,
+                    "Actualizacion terminada" if state == "updated" else "Archivo reparado",
+                    found_version=f"sha256:{digest[:16]}",
+                )
+            return completed
+
+    def _notify(
+        self,
+        logical_name: str,
+        state: str,
+        message: str,
+        *,
+        installed_version: str | None = None,
+        found_version: str | None = None,
+    ) -> None:
+        if self._on_progress is None:
+            return
+        event: dict[str, object] = {
+            "logical_name": logical_name,
+            "state": state,
+            "message": message,
+        }
+        if installed_version is not None:
+            event["installed_version"] = installed_version
+        if found_version is not None:
+            event["found_version"] = found_version
+        self._on_progress(event)
 
     def _load_lock(self) -> dict[str, Any]:
         with self._model_lock_path.open("r", encoding="utf-8") as file:

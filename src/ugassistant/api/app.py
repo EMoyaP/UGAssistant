@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
@@ -44,7 +45,7 @@ from ugassistant.services.audio import (
 from ugassistant.services.camera import CameraService, CameraStatus
 from ugassistant.services.conversation import ConversationService, ConversationStatus
 from ugassistant.services.fixed_model_updates import FixedModelUpdateService
-from ugassistant.services.model_updates import ModelUpdateBusyError, ModelUpdateService
+from ugassistant.services.model_updates import ModelUpdateService
 from ugassistant.services.recognition import (
     RecognitionBusyError,
     RecognitionStatus,
@@ -572,6 +573,102 @@ def create_app(
             },
         ),
     )
+    model_update_progress: dict[str, object] = {
+        "state": "idle",
+        "message": "Sin comprobar",
+        "models": {},
+    }
+    model_update_progress_lock = threading.Lock()
+    model_update_task: asyncio.Task[None] | None = None
+
+    def model_update_snapshot() -> dict[str, object]:
+        with model_update_progress_lock:
+            models = model_update_progress.get("models", {})
+            model_snapshot = (
+                {str(name): dict(value) for name, value in models.items()}
+                if isinstance(models, dict)
+                else {}
+            )
+            snapshot = {
+                "state": model_update_progress["state"],
+                "message": model_update_progress["message"],
+                "models": model_snapshot,
+            }
+            result = model_update_progress.get("result")
+            if isinstance(result, dict):
+                snapshot["result"] = result
+            return snapshot
+
+    def record_model_update_progress(event: dict[str, object]) -> None:
+        logical_name = str(event.get("logical_name", "models"))
+        with model_update_progress_lock:
+            models = model_update_progress["models"]
+            if not isinstance(models, dict):
+                models = {}
+                model_update_progress["models"] = models
+            previous = models.get(logical_name, {})
+            models[logical_name] = {
+                **(previous if isinstance(previous, dict) else {}),
+                **event,
+            }
+            model_update_progress["state"] = "running"
+            model_update_progress["message"] = str(event.get("message", "Comprobando modelos"))
+
+    set_progress_listener = getattr(model_update_service, "set_progress_listener", None)
+    if callable(set_progress_listener):
+        set_progress_listener(record_model_update_progress)
+
+    def complete_model_update(result: dict[str, object]) -> None:
+        with model_update_progress_lock:
+            models = model_update_progress["models"]
+            if not isinstance(models, dict):
+                models = {}
+                model_update_progress["models"] = models
+            llm = result.get("llm")
+            if isinstance(llm, dict):
+                previous = models.get("llm", {})
+                previous_entry = previous if isinstance(previous, dict) else {}
+                models["llm"] = {
+                    **previous_entry,
+                    "logical_name": "llm",
+                    "state": llm.get("state", result.get("status", "completed")),
+                    "message": str(result.get("message", "Comprobacion terminada")),
+                    "installed_version": previous_entry.get("installed_version")
+                    or llm.get("installed_digest"),
+                    "found_version": previous_entry.get("found_version")
+                    or llm.get("remote_digest"),
+                }
+            fixed_models = result.get("fixed_models", [])
+            if isinstance(fixed_models, list):
+                for item in fixed_models:
+                    if not isinstance(item, dict):
+                        continue
+                    logical_name = str(item.get("logical_name", "fixed_models"))
+                    previous = models.get(logical_name, {})
+                    models[logical_name] = {
+                        **(previous if isinstance(previous, dict) else {}),
+                        **item,
+                        "message": str(item.get("detail", result.get("message", "Comprobacion terminada"))),
+                    }
+            model_update_progress["state"] = (
+                "failed" if result.get("status") == "error" else "completed"
+            )
+            model_update_progress["message"] = str(
+                result.get("message", "Comprobacion terminada")
+            )
+            model_update_progress["result"] = result
+
+    async def run_model_update() -> None:
+        try:
+            result = await model_update_service.check_and_update()
+            await conversation_service.refresh()
+        except Exception as exc:
+            logger.exception("model_update_failed")
+            with model_update_progress_lock:
+                model_update_progress["state"] = "failed"
+                model_update_progress["message"] = f"No se pudo actualizar: {exc}"
+        else:
+            complete_model_update(result)
 
     async def on_voice_assistant_status(status: VoiceAssistantStatus) -> None:
         await assistant_manager.broadcast(status.to_dict())
@@ -788,15 +885,24 @@ def create_app(
 
     @app.post("/api/models/update")
     async def update_models() -> dict[str, object]:
-        try:
-            result = await model_update_service.check_and_update()
-            await conversation_service.refresh()
-            return result
-        except ModelUpdateBusyError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        except Exception as exc:
-            logger.exception("model_update_failed")
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        nonlocal model_update_task
+        if model_update_task is not None and not model_update_task.done():
+            raise HTTPException(status_code=409, detail="model_update_in_progress")
+        with model_update_progress_lock:
+            model_update_progress.clear()
+            model_update_progress.update(
+                {
+                    "state": "running",
+                    "message": "Preparando la comprobacion de modelos",
+                    "models": {},
+                }
+            )
+        model_update_task = asyncio.create_task(run_model_update())
+        return model_update_snapshot()
+
+    @app.get("/api/models/update/status")
+    async def get_model_update_status() -> dict[str, object]:
+        return model_update_snapshot()
 
     @app.put("/api/assistant/profile")
     async def update_assistant_profile(

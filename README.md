@@ -130,6 +130,11 @@ una descarga, carga o prueba, se restauran los archivos, Gemma y
 No hay descargas en segundo plano; Windows y Raspberry Pi ejecutan sus propias
 pruebas con sus runtimes respectivos.
 
+El modal muestra el avance por modelo (`Comprobando`, `Descargando`,
+`Instalando`, `Probando`, `Actualizado` o `Restaurado`), la revision instalada
+y la detectada. La operacion sigue ejecutandose aunque tarde varios minutos; no
+cierres el servidor ni la ventana hasta que aparezca el estado final.
+
 ### Perfiles de respuesta local
 
 La respuesta `corta` usa `gemma3:4b` con 2.048 tokens de contexto, hasta tres

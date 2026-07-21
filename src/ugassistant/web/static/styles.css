@@ -407,6 +407,66 @@ h1 {
   align-items: center;
 }
 
+.model-update-details {
+  margin-top: 12px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.model-update-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.model-update-table th,
+.model-update-table td {
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.model-update-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.model-update-table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.model-update-table td:first-child {
+  min-width: 88px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.model-update-table td:nth-child(2),
+.model-update-table td:nth-child(3) {
+  min-width: 140px;
+  color: var(--muted);
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  overflow-wrap: anywhere;
+}
+
+.model-update-state {
+  color: var(--listen);
+  font-weight: 600;
+}
+
+.model-update-state[data-state="error"],
+.model-update-state[data-state="rolled_back"] {
+  color: var(--error);
+}
+
+.model-update-state[data-state="up_to_date"],
+.model-update-state[data-state="updated"],
+.model-update-state[data-state="repaired"] {
+  color: var(--idle);
+}
+
 .model-update-note {
   margin: 10px 0 0;
   color: var(--muted);

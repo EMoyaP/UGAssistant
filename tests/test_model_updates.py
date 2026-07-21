@@ -224,8 +224,16 @@ class ModelUpdateApiTests(unittest.IsolatedAsyncioTestCase):
             )
 
             response = await route_endpoint(app, "/api/models/update")()
+            status = response
+            for _attempt in range(20):
+                await asyncio.sleep(0.01)
+                status = await route_endpoint(app, "/api/models/update/status")()
+                if status["state"] != "running":
+                    break
 
-        self.assertEqual(response["status"], "up_to_date")
+        self.assertEqual(response["state"], "running")
+        self.assertEqual(status["state"], "completed")
+        self.assertEqual(status["result"]["status"], "up_to_date")  # type: ignore[index]
 
 
 if __name__ == "__main__":

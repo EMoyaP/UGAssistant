@@ -54,6 +54,7 @@ class ModelUpdateService:
         backup_model: Callable[[str, str], None] | None = None,
         restore_model: Callable[[str, str], None] | None = None,
         functional_check: Callable[[str], None] | None = None,
+        on_progress: Callable[[dict[str, object]], None] | None = None,
     ) -> None:
         self._models = tuple(
             model
@@ -75,7 +76,18 @@ class ModelUpdateService:
         self._functional_check = functional_check or self._run_llm_functional_check
         self._manage_ollama_backup = backup_model is not None or pull_model is None
         self._run_functional_check = functional_check is not None or pull_model is None
+        self._on_progress = on_progress
+        if self._fixed_model_updater is not None:
+            self._fixed_model_updater.set_progress_listener(on_progress)
         self._lock = asyncio.Lock()
+
+    def set_progress_listener(
+        self,
+        listener: Callable[[dict[str, object]], None] | None,
+    ) -> None:
+        self._on_progress = listener
+        if self._fixed_model_updater is not None:
+            self._fixed_model_updater.set_progress_listener(listener)
 
     async def check_and_update(self) -> dict[str, object]:
         if self._lock.locked():
@@ -89,6 +101,13 @@ class ModelUpdateService:
         tag = str(llm["version_or_tag"])
         if self._llm_model != tag:
             raise RuntimeError("llm_config_does_not_match_model_lock")
+        local_digest = self._local_digest_loader(tag)
+        self._notify(
+            "llm",
+            "checking",
+            "Consultando la version de Gemma",
+            installed_version=self._display_version(tag, local_digest),
+        )
         remote_manifest: OllamaManifest | None = None
         error: str | None = None
         try:
@@ -98,11 +117,11 @@ class ModelUpdateService:
         except RuntimeError as exc:
             error = str(exc)
 
-        local_digest = self._local_digest_loader(tag)
         llm_status = "unavailable"
         updated = False
         detail = "No se pudo consultar el registro oficial."
         if error is None and remote_manifest is not None:
+            remote_version = self._display_version(tag, remote_manifest.digest)
             if remote_manifest.digest != locked_digest:
                 backup_tag = self._backup_tag(tag)
                 has_backup = False
@@ -113,12 +132,30 @@ class ModelUpdateService:
                 )
                 try:
                     if self._manage_ollama_backup and local_digest is not None:
+                        self._notify(
+                            "llm",
+                            "backing_up",
+                            "Guardando la ultima version funcional",
+                            found_version=remote_version,
+                        )
                         self._backup_model(tag, backup_tag)
                         has_backup = True
+                    self._notify(
+                        "llm",
+                        "installing",
+                        "Instalando la nueva version de Gemma",
+                        found_version=remote_version,
+                    )
                     self._pull_model(tag)
                     local_digest = self._local_digest_loader(tag)
                     if local_digest != remote_manifest.digest:
                         raise RuntimeError("ollama_updated_digest_mismatch")
+                    self._notify(
+                        "llm",
+                        "validating",
+                        "Probando Gemma localmente",
+                        found_version=remote_version,
+                    )
                     self._check_llm_functional(tag)
                 except Exception as exc:
                     if has_backup:
@@ -134,16 +171,37 @@ class ModelUpdateService:
                     self._restore_lock(llm, previous_lock)
                     llm_status = "error"
                     detail = "Gemma no supero la prueba local; se ha restaurado la version anterior."
+                    self._notify(
+                        "llm",
+                        "rolled_back",
+                        detail,
+                        installed_version=self._display_version(tag, local_digest),
+                        found_version=remote_version,
+                    )
                 else:
                     locked_digest = remote_manifest.digest
                     llm_status = "updated"
                     updated = True
                     detail = "Gemma se ha actualizado a la revision oficial mas reciente."
+                    self._notify("llm", "updated", detail, found_version=remote_version)
             elif local_digest == locked_digest:
                 llm_status = "up_to_date"
                 detail = "Gemma coincide con el modelo bloqueado."
+                self._notify(
+                    "llm",
+                    "up_to_date",
+                    detail,
+                    installed_version=self._display_version(tag, local_digest),
+                    found_version=remote_version,
+                )
             else:
                 try:
+                    self._notify(
+                        "llm",
+                        "installing",
+                        "Reparando Gemma con la version bloqueada",
+                        found_version=remote_version,
+                    )
                     self._pull_model(tag)
                     local_digest = self._local_digest_loader(tag)
                 except RuntimeError as exc:
@@ -162,6 +220,7 @@ class ModelUpdateService:
                             llm_status = "updated"
                             updated = True
                             detail = "Gemma se ha actualizado al modelo bloqueado."
+                            self._notify("llm", "updated", detail, found_version=remote_version)
                     else:
                         llm_status = "error"
                         detail = "Ollama no devolvio el SHA-256 bloqueado tras actualizar."
@@ -217,6 +276,32 @@ class ModelUpdateService:
             if model.get("logical_name") == logical_name:
                 return model
         raise RuntimeError(f"model_lock_missing:{logical_name}")
+
+    def _notify(
+        self,
+        logical_name: str,
+        state: str,
+        message: str,
+        *,
+        installed_version: str | None = None,
+        found_version: str | None = None,
+    ) -> None:
+        if self._on_progress is None:
+            return
+        event: dict[str, object] = {
+            "logical_name": logical_name,
+            "state": state,
+            "message": message,
+        }
+        if installed_version is not None:
+            event["installed_version"] = installed_version
+        if found_version is not None:
+            event["found_version"] = found_version
+        self._on_progress(event)
+
+    @staticmethod
+    def _display_version(tag: str, digest: str | None) -> str:
+        return f"{tag} ({digest[:16]})" if digest else f"{tag} (no instalada)"
 
     @staticmethod
     def _required_digest(model: Mapping[str, Any]) -> str:
