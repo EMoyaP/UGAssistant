@@ -135,6 +135,15 @@ El modal muestra el avance por modelo (`Comprobando`, `Descargando`,
 y la detectada. La operacion sigue ejecutandose aunque tarde varios minutos; no
 cierres el servidor ni la ventana hasta que aparezca el estado final.
 
+### Actualizar UGAssistant
+
+La seccion `UGAssistant` de Configuracion consulta `origin/main` al pulsar
+`Buscar e instalar actualizacion`. Solo usa `git pull --ff-only`: requiere un
+repositorio limpio y rechaza historiales divergentes, por lo que no sobrescribe
+cambios locales. Muestra el commit instalado y el encontrado. Despues de una
+actualizacion correcta, reinicia la aplicacion. Las dependencias, los modelos y
+los datos de usuario no se actualizan mediante este boton.
+
 ### Perfiles de respuesta local
 
 La respuesta `corta` usa `gemma3:4b` con 2.048 tokens de contexto, hasta tres

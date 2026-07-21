@@ -39,6 +39,9 @@ const saveProfileButton = document.querySelector("#saveProfileButton");
 const updateModelsButton = document.querySelector("#updateModelsButton");
 const modelsUpdateStatus = document.querySelector("#modelsUpdateStatus");
 const modelsUpdateDetails = document.querySelector("#modelsUpdateDetails");
+const updateApplicationButton = document.querySelector("#updateApplicationButton");
+const applicationUpdateStatus = document.querySelector("#applicationUpdateStatus");
+const applicationUpdateDetails = document.querySelector("#applicationUpdateDetails");
 const conversationTurns = document.querySelector("#conversationTurns");
 const timerStack = document.querySelector("#timerStack");
 
@@ -545,6 +548,61 @@ async function updateModels() {
     console.error(error);
   } finally {
     updateModelsButton.disabled = false;
+  }
+}
+
+function shortRevision(value) {
+  return value ? String(value).slice(0, 12) : "-";
+}
+
+function renderApplicationUpdateDetails(payload) {
+  const table = document.createElement("table");
+  table.className = "model-update-table";
+  const body = document.createElement("tbody");
+  [
+    ["Instalada", shortRevision(payload.installed_revision)],
+    ["En GitHub", shortRevision(payload.remote_revision)],
+    ["Estado", payload.state || "-"],
+  ].forEach(([label, value]) => {
+    const row = document.createElement("tr");
+    const labelCell = document.createElement("td");
+    labelCell.textContent = label;
+    const valueCell = document.createElement("td");
+    valueCell.textContent = value;
+    valueCell.colSpan = 3;
+    row.append(labelCell, valueCell);
+    body.append(row);
+  });
+  table.append(body);
+  applicationUpdateDetails.replaceChildren(table);
+  applicationUpdateDetails.hidden = false;
+}
+
+async function updateApplication() {
+  updateApplicationButton.disabled = true;
+  applicationUpdateStatus.textContent = "Consultando origin/main...";
+  applicationUpdateDetails.hidden = true;
+  applicationUpdateDetails.replaceChildren();
+  try {
+    const response = await fetch("/api/application/update", { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || `Application update failed: ${response.status}`);
+    }
+    applicationUpdateStatus.textContent = payload.message;
+    renderApplicationUpdateDetails(payload);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "";
+    if (detail === "git_worktree_dirty") {
+      applicationUpdateStatus.textContent = "Hay cambios locales; no se ha actualizado el codigo.";
+    } else if (detail === "application_update_in_progress") {
+      applicationUpdateStatus.textContent = "Ya hay una actualizacion de UGAssistant en curso.";
+    } else {
+      applicationUpdateStatus.textContent = "No se pudo comprobar la actualizacion de UGAssistant.";
+    }
+    console.error(error);
+  } finally {
+    updateApplicationButton.disabled = false;
   }
 }
 
@@ -1102,6 +1160,7 @@ settingsDialog.addEventListener("click", (event) => {
 shutdownButton.addEventListener("click", shutdownSystem);
 saveProfileButton.addEventListener("click", saveAssistantProfile);
 updateModelsButton.addEventListener("click", updateModels);
+updateApplicationButton.addEventListener("click", updateApplication);
 
 window.addEventListener("pointermove", handlePointerMove, { passive: true });
 window.addEventListener("pointerdown", registerActivity, { passive: true });

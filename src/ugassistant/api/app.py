@@ -42,6 +42,10 @@ from ugassistant.services.audio import (
     AudioCaptureCancelledError,
     NoSpeechDetectedError,
 )
+from ugassistant.services.application_updates import (
+    ApplicationUpdateBusyError,
+    ApplicationUpdateService,
+)
 from ugassistant.services.camera import CameraService, CameraStatus
 from ugassistant.services.conversation import ConversationService, ConversationStatus
 from ugassistant.services.fixed_model_updates import FixedModelUpdateService
@@ -111,6 +115,7 @@ def create_app(
     preference_store: YAMLPreferenceStore | None = None,
     llm_adapter: LLMAdapter | None = None,
     model_update_service: ModelUpdateService | None = None,
+    application_update_service: ApplicationUpdateService | None = None,
 ) -> FastAPI:
     settings = settings or load_app_settings()
     state_machine = AssistantStateMachine()
@@ -573,6 +578,9 @@ def create_app(
             },
         ),
     )
+    application_update_service = application_update_service or ApplicationUpdateService(
+        project_root=settings.project_root,
+    )
     model_update_progress: dict[str, object] = {
         "state": "idle",
         "message": "Sin comprobar",
@@ -903,6 +911,16 @@ def create_app(
     @app.get("/api/models/update/status")
     async def get_model_update_status() -> dict[str, object]:
         return model_update_snapshot()
+
+    @app.post("/api/application/update")
+    async def update_application() -> dict[str, object]:
+        try:
+            return await application_update_service.check_and_update()
+        except ApplicationUpdateBusyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.exception("application_update_failed")
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     @app.put("/api/assistant/profile")
     async def update_assistant_profile(

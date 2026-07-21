@@ -159,6 +159,25 @@
             </div>
           </section>
 
+          <section class="device-setting" aria-labelledby="applicationUpdateTitle">
+            <div class="device-setting-heading">
+              <div>
+                <h3 id="applicationUpdateTitle">UGAssistant</h3>
+                <p id="applicationUpdateStatus" aria-live="polite">Sin comprobar</p>
+              </div>
+            </div>
+            <div class="model-update-actions">
+              <button id="updateApplicationButton" type="button" class="primary-button">
+                Buscar e instalar actualizacion
+              </button>
+            </div>
+            <div id="applicationUpdateDetails" class="model-update-details" hidden></div>
+            <p class="model-update-note">
+              Comprueba <code>origin/main</code> y aplica solo avances lineales. Tras instalar,
+              reinicia UGAssistant para cargar el codigo nuevo.
+            </p>
+          </section>
+
           <section class="device-setting" aria-labelledby="modelsSettingTitle">
             <div class="device-setting-heading">
               <div>
@@ -270,6 +289,6 @@
       </form>
     </dialog>
 
-    <script src="/static/app.js?v=32" defer></script>
+    <script src="/static/app.js?v=33" defer></script>
   </body>
 </html>
