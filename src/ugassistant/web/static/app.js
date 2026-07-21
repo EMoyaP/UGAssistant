@@ -36,11 +36,9 @@ const stateButtons = Array.from(document.querySelectorAll("[data-next-state]"));
 const wakeSpanishInput = document.querySelector("#wakeSpanishInput");
 const wakeFrenchInput = document.querySelector("#wakeFrenchInput");
 const saveProfileButton = document.querySelector("#saveProfileButton");
-const updateModelsButton = document.querySelector("#updateModelsButton");
-const modelsUpdateStatus = document.querySelector("#modelsUpdateStatus");
 const modelsUpdateDetails = document.querySelector("#modelsUpdateDetails");
-const updateApplicationButton = document.querySelector("#updateApplicationButton");
-const applicationUpdateStatus = document.querySelector("#applicationUpdateStatus");
+const updateAllButton = document.querySelector("#updateAllButton");
+const updatesStatus = document.querySelector("#updatesStatus");
 const applicationUpdateDetails = document.querySelector("#applicationUpdateDetails");
 const conversationTurns = document.querySelector("#conversationTurns");
 const timerStack = document.querySelector("#timerStack");
@@ -510,45 +508,44 @@ function waitForModelUpdateProgress() {
   return new Promise((resolve) => window.setTimeout(resolve, 500));
 }
 
-async function updateModels() {
-  updateModelsButton.disabled = true;
-  modelsUpdateStatus.textContent = "Preparando la comprobacion...";
+function modelProgressLabel(snapshot) {
+  const states = Object.values(snapshot.models || {}).map((entry) => entry.state);
+  if (states.includes("downloading")) {
+    return "Descargando modelos";
+  }
+  if (states.includes("installing") || states.includes("backing_up")) {
+    return "Actualizando modelos";
+  }
+  if (states.includes("validating")) {
+    return "Validando modelos";
+  }
+  return "Comprobando modelos";
+}
+
+async function runModelUpdate() {
+  updatesStatus.textContent = "Comprobando modelos";
   modelsUpdateDetails.hidden = true;
   modelsUpdateDetails.replaceChildren();
-  try {
-    const response = await fetch("/api/models/update", { method: "POST" });
-    let payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.detail || `Model update failed: ${response.status}`);
-    }
-    if (!payload.state) {
-      throw new Error("server_restart_required");
-    }
-    while (payload.state === "running") {
-      modelsUpdateStatus.textContent = payload.message;
-      renderModelUpdateDetails(payload);
-      await waitForModelUpdateProgress();
-      const statusResponse = await fetch("/api/models/update/status");
-      payload = await statusResponse.json();
-      if (!statusResponse.ok) {
-        throw new Error(payload.detail || `Model status failed: ${statusResponse.status}`);
-      }
-    }
-    modelsUpdateStatus.textContent = payload.message;
-    renderModelUpdateDetails(payload);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "";
-    if (detail === "server_restart_required" || detail.startsWith("Model status failed: 404")) {
-      modelsUpdateStatus.textContent = "Reinicia UGAssistant para activar el seguimiento de modelos.";
-    } else if (detail === "model_update_in_progress") {
-      modelsUpdateStatus.textContent = "Ya hay una actualizacion de modelos en curso.";
-    } else {
-      modelsUpdateStatus.textContent = "No se pudieron comprobar los modelos.";
-    }
-    console.error(error);
-  } finally {
-    updateModelsButton.disabled = false;
+  const response = await fetch("/api/models/update", { method: "POST" });
+  let payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.detail || `Model update failed: ${response.status}`);
   }
+  if (!payload.state) {
+    throw new Error("server_restart_required");
+  }
+  while (payload.state === "running") {
+    updatesStatus.textContent = modelProgressLabel(payload);
+    renderModelUpdateDetails(payload);
+    await waitForModelUpdateProgress();
+    const statusResponse = await fetch("/api/models/update/status");
+    payload = await statusResponse.json();
+    if (!statusResponse.ok) {
+      throw new Error(payload.detail || `Model status failed: ${statusResponse.status}`);
+    }
+  }
+  renderModelUpdateDetails(payload);
+  return payload;
 }
 
 function shortRevision(value) {
@@ -558,51 +555,81 @@ function shortRevision(value) {
 function renderApplicationUpdateDetails(payload) {
   const table = document.createElement("table");
   table.className = "model-update-table";
-  const body = document.createElement("tbody");
-  [
-    ["Instalada", shortRevision(payload.installed_revision)],
-    ["En GitHub", shortRevision(payload.remote_revision)],
-    ["Estado", payload.state || "-"],
-  ].forEach(([label, value]) => {
-    const row = document.createElement("tr");
-    const labelCell = document.createElement("td");
-    labelCell.textContent = label;
-    const valueCell = document.createElement("td");
-    valueCell.textContent = value;
-    valueCell.colSpan = 3;
-    row.append(labelCell, valueCell);
-    body.append(row);
+  const header = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  ["Componente", "Instalada", "Disponible", "Estado"].forEach((label) => {
+    const cell = document.createElement("th");
+    cell.textContent = label;
+    headerRow.append(cell);
   });
-  table.append(body);
+  header.append(headerRow);
+  const body = document.createElement("tbody");
+  const row = document.createElement("tr");
+  const stateLabels = {
+    up_to_date: "Al dia",
+    updated: "Actualizado",
+    local_ahead: "Local",
+    diverged: "Requiere revision",
+  };
+  [
+    "UGAssistant",
+    shortRevision(payload.installed_revision),
+    shortRevision(payload.remote_revision),
+    stateLabels[payload.state] || payload.state || "-",
+  ].forEach((value) => {
+    const cell = document.createElement("td");
+    cell.textContent = value;
+    row.append(cell);
+  });
+  body.append(row);
+  table.append(header, body);
   applicationUpdateDetails.replaceChildren(table);
   applicationUpdateDetails.hidden = false;
 }
 
-async function updateApplication() {
-  updateApplicationButton.disabled = true;
-  applicationUpdateStatus.textContent = "Consultando origin/main...";
+async function runApplicationUpdate() {
+  updatesStatus.textContent = "Comprobando software";
   applicationUpdateDetails.hidden = true;
   applicationUpdateDetails.replaceChildren();
+  const response = await fetch("/api/application/update", { method: "POST" });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.detail || `Application update failed: ${response.status}`);
+  }
+  renderApplicationUpdateDetails(payload);
+  return payload;
+}
+
+async function updateAll() {
+  updateAllButton.disabled = true;
   try {
-    const response = await fetch("/api/application/update", { method: "POST" });
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.detail || `Application update failed: ${response.status}`);
+    const applicationUpdate = await runApplicationUpdate();
+    if (!["up_to_date", "updated"].includes(applicationUpdate.state)) {
+      updatesStatus.textContent = "Revision detenida";
+      return;
     }
-    applicationUpdateStatus.textContent = payload.message;
-    renderApplicationUpdateDetails(payload);
+    const modelUpdate = await runModelUpdate();
+    if (modelUpdate.state === "failed") {
+      updatesStatus.textContent = "Revision completada con incidencias";
+    } else if (applicationUpdate.restart_required) {
+      updatesStatus.textContent = "Reinicio requerido";
+    } else {
+      updatesStatus.textContent = "Al dia";
+    }
   } catch (error) {
     const detail = error instanceof Error ? error.message : "";
     if (detail === "git_worktree_dirty") {
-      applicationUpdateStatus.textContent = "Hay cambios locales; no se ha actualizado el codigo.";
-    } else if (detail === "application_update_in_progress") {
-      applicationUpdateStatus.textContent = "Ya hay una actualizacion de UGAssistant en curso.";
+      updatesStatus.textContent = "Cambios locales pendientes";
+    } else if (detail === "application_update_in_progress" || detail === "model_update_in_progress") {
+      updatesStatus.textContent = "Actualizacion en curso";
+    } else if (detail === "server_restart_required" || detail.startsWith("Model status failed: 404")) {
+      updatesStatus.textContent = "Reinicio requerido";
     } else {
-      applicationUpdateStatus.textContent = "No se pudo comprobar la actualizacion de UGAssistant.";
+      updatesStatus.textContent = "Revision no disponible";
     }
     console.error(error);
   } finally {
-    updateApplicationButton.disabled = false;
+    updateAllButton.disabled = false;
   }
 }
 
@@ -1159,8 +1186,7 @@ settingsDialog.addEventListener("click", (event) => {
 
 shutdownButton.addEventListener("click", shutdownSystem);
 saveProfileButton.addEventListener("click", saveAssistantProfile);
-updateModelsButton.addEventListener("click", updateModels);
-updateApplicationButton.addEventListener("click", updateApplication);
+updateAllButton.addEventListener("click", updateAll);
 
 window.addEventListener("pointermove", handlePointerMove, { passive: true });
 window.addEventListener("pointerdown", registerActivity, { passive: true });

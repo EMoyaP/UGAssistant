@@ -118,31 +118,23 @@ Ollama descarga el modelo una vez desde su registro y lo sirve despues por la
 API local `127.0.0.1:11434`; UGAssistant no usa una API de IA externa durante
 el funcionamiento.
 
-En Configuracion, la seccion `Modelos` incluye `Buscar y actualizar`. Al
-pulsarlo, actualiza Gemma desde el manifiesto oficial de Ollama y consulta las
-fuentes oficiales aprobadas para STT, TTS y vision. Cada candidato se descarga
-temporalmente, se activa de forma atomica y se prueba en el equipo local:
-Whisper y Piper procesan una frase de prueba en castellano y frances, y OpenCV
-carga los tres modelos de vision. Gemma conserva una etiqueta local de ultima
-version funcional y ejecuta una generacion minima antes de aceptarse. Si falla
-una descarga, carga o prueba, se restauran los archivos, Gemma y
-`models.lock.yaml` de la ultima version funcional.
-No hay descargas en segundo plano; Windows y Raspberry Pi ejecutan sus propias
-pruebas con sus runtimes respectivos.
+### Actualizaciones
 
-El modal muestra el avance por modelo (`Comprobando`, `Descargando`,
-`Instalando`, `Probando`, `Actualizado` o `Restaurado`), la revision instalada
-y la detectada. La operacion sigue ejecutandose aunque tarde varios minutos; no
-cierres el servidor ni la ventana hasta que aparezca el estado final.
+La seccion `Actualizaciones` de Configuracion ejecuta una unica revision
+ordenada. Primero consulta `origin/main` y aplica `git pull --ff-only` cuando
+existe un avance lineal. El repositorio debe estar limpio y los historiales
+divergentes no se modifican. A continuacion comprueba Gemma, STT, TTS y vision
+contra sus fuentes oficiales aprobadas.
 
-### Actualizar UGAssistant
+Los candidatos de modelos se descargan temporalmente, se activan de forma
+atomica y se prueban en el equipo local: Whisper y Piper procesan frases de
+prueba en castellano y frances, OpenCV carga los modelos de vision y Gemma
+realiza una generacion minima. Ante cualquier fallo se restaura el ultimo
+conjunto funcional y su bloqueo. La interfaz muestra las revisiones instalada
+y disponible de cada componente y un estado compacto. Si se actualiza el
+software, reinicia UGAssistant al finalizar para cargar el nuevo codigo.
 
-La seccion `UGAssistant` de Configuracion consulta `origin/main` al pulsar
-`Buscar e instalar actualizacion`. Solo usa `git pull --ff-only`: requiere un
-repositorio limpio y rechaza historiales divergentes, por lo que no sobrescribe
-cambios locales. Muestra el commit instalado y el encontrado. Despues de una
-actualizacion correcta, reinicia la aplicacion. Las dependencias, los modelos y
-los datos de usuario no se actualizan mediante este boton.
+La operacion no modifica dependencias, preferencias ni datos de usuario.
 
 ### Perfiles de respuesta local
 

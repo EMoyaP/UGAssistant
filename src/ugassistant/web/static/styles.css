@@ -467,13 +467,6 @@ h1 {
   color: var(--idle);
 }
 
-.model-update-note {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
 .settings-footer {
   min-height: 42px;
   padding: 0 20px;
